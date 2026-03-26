@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=1280, initial-scale=0.3, minimum-scale=0.1, maximum-scale=3, user-scalable=yes">
 <title>Priceless NextCar Shuttle Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -10,8 +10,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0A0E1A;--panel-bg:#0D1220;--card-border:rgba(255,255,255,0.06);--blue:#3B82F6;--green:#10B981;--gold:#F59E0B;--red:#EF4444;--text:#F9FAFB;--text-dim:#6B7280;--text-muted:#4B5563;--panel-width:20vw}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh;cursor:none}
+:root{--bg:#0A0E1A;--panel-bg:#0D1220;--card-border:rgba(255,255,255,0.06);--blue:#3B82F6;--green:#10B981;--gold:#F59E0B;--red:#EF4444;--text:#F9FAFB;--text-dim:#6B7280;--text-muted:#4B5563;--panel-width:280px}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
 .layout{display:flex;height:100vh;width:100vw}
 .map-side{flex:1;position:relative}
 #map{width:100%;height:100%;background:#1a2e1a}
@@ -44,8 +44,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
 .eta-label{font-size:9px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
 .eta-number{font-size:60px;font-weight:900;line-height:1;letter-spacing:-3px;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#FFFFFF 0%,#93C5FD 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .eta-unit{font-size:18px;font-weight:600;color:var(--text-dim);margin-top:2px;letter-spacing:3px;text-transform:uppercase}
-.eta-smart{margin-top:8px;font-size:9px;color:var(--text-muted);letter-spacing:.5px}
-.eta-smart.learned{color:var(--blue)}
+.status-updated{display:none}
 .eta-parked .eta-number{font-size:36px;letter-spacing:-1px;background:linear-gradient(180deg,#FBBF24 0%,#F59E0B 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .hp-section{padding:0 24px 16px}
 .hp-labels{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
@@ -65,12 +64,12 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
 .avg-trip-text{font-size:11px;color:var(--text-dim)}
 .avg-trip-value{font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
 .panel-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.2),transparent);margin:0 24px}
-.customer-section{flex:1;display:flex;flex-direction:column;justify-content:center;padding:16px 24px;gap:14px}
-.guidance-row{display:flex;align-items:center;gap:10px}
-.guidance-icon{width:32px;height:32px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.15);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
-.guidance-text{font-size:12px;color:rgba(255,255,255,0.6);line-height:1.4}
-.guidance-text strong{color:#fff;font-weight:700}
-.rotating-msg{font-size:11px;color:var(--text-dim);font-style:italic;text-align:center;transition:opacity .5s ease;line-height:1.5;min-height:34px;display:flex;align-items:center;justify-content:center}
+.info-carousel{flex:1;display:flex;align-items:center;justify-content:center;padding:16px 20px;text-align:center}
+.carousel-slide{animation:fadeSlide .6s ease}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.carousel-icon{font-size:24px;margin-bottom:8px}
+.carousel-main{font-size:13px;font-weight:700;color:#fff;line-height:1.5;margin-bottom:4px}
+.carousel-sub{font-size:10px;color:var(--text-dim);line-height:1.4}
 .panel-footer{padding:12px 24px;border-top:1px solid var(--card-border);text-align:center}
 .footer-support{font-size:10px;color:var(--text-muted)}
 .brain-stats{font-size:8px;color:rgba(107,114,128,0.4);margin-top:4px}
@@ -109,17 +108,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
 <div class="panel-header"><div class="panel-logos"><div class="p-badge p-badge-blue">PRICELESS</div><div class="p-badge p-badge-green">NEXTCAR</div></div><div class="panel-title">Shuttle Tracker</div><div class="panel-address">9750 Airport Blvd, Los Angeles</div></div>
 <div class="panel-live-row"><div class="live-pill"><div class="live-dot"></div><span class="live-text">LIVE</span></div><div class="panel-clock" id="clock">--:--</div></div>
 <div class="active-content" id="active-content">
-<div class="status-section"><div class="status-label">SHUTTLE STATUS &#x2013; LIVE</div><div class="status-direction status-running" id="status-dir"><div class="status-icon" id="status-icon-el">&#x1F690;</div><span class="status-text" id="status-text">CONNECTING...</span></div><div class="status-updated" id="status-time">--</div></div>
-<div class="eta-section" id="eta-section"><div class="eta-number" id="eta-num">--</div><div class="eta-unit" id="eta-unit">MINUTES</div><div class="eta-smart" id="eta-source"></div></div>
+<div class="status-section"><div class="status-label">SHUTTLE STATUS &#x2013; LIVE</div><div class="status-direction status-running" id="status-dir"><div class="status-icon" id="status-icon-el">&#x1F690;</div><span class="status-text" id="status-text">CONNECTING...</span></div></div>
+<div class="eta-section" id="eta-section"><div class="eta-number" id="eta-num">--</div><div class="eta-unit" id="eta-unit">MINUTES</div></div>
 <div class="hp-section"><div class="hp-labels"><span class="hp-endpoint" id="hp-from">PICKUP</span><span class="hp-pct" id="hp-pct">0%</span><span class="hp-endpoint" id="hp-to">OFFICE</span></div><div class="hp-track hp-blue" id="hp-track"><div class="hp-fill" id="hp-fill" style="width:0%"></div></div></div>
-<div class="avg-trip" id="avg-trip" style="display:none"><span>&#x23F1;</span><span class="avg-trip-text">Avg trip: <span class="avg-trip-value" id="avg-trip-val">--</span> min</span></div>
 <div class="panel-divider"></div>
-<div class="customer-section">
-<div class="guidance-row"><div class="guidance-icon">&#x1FA91;</div><div class="guidance-text"><strong>Please wait in the lobby</strong> or designated pickup area</div></div>
-<div class="guidance-row"><div class="guidance-icon">&#x1F504;</div><div class="guidance-text">Your shuttle is <strong>continuously running</strong></div></div>
-<div class="guidance-row"><div class="guidance-icon">&#x23F0;</div><div class="guidance-text"><strong>Average Wait Time: 8&#x2013;12 Minutes</strong></div></div>
-<div class="rotating-msg" id="rotating-msg">Your shuttle is on the way. Thank you for your patience.</div>
-</div>
+<div class="info-carousel"><div class="carousel-slide" id="carousel-slide"></div></div>
 </div>
 <div class="parked-panel" id="parked-panel"><div class="parked-logos"><div class="p-badge p-badge-blue parked-badge">PRICELESS</div><div class="parked-amp">&amp;</div><div class="p-badge p-badge-green parked-badge">NEXTCAR</div></div><div class="parked-divider"></div><div class="parked-title">Shuttle on Standby</div><div class="parked-msg">Please check with our front desk<br>for shuttle availability.</div></div>
 <div class="panel-footer"><div class="footer-support">Need help? Please see our front desk team.</div><div class="brain-stats" id="brain-stats"></div></div>
@@ -138,8 +131,15 @@ function uc(){document.getElementById("clock").textContent=new Date().toLocaleTi
 var D={"to-office":{t:"Arriving",i:"\uD83D\uDE90",c:"status-running",f:"PICKUP",o:"PRICELESS"},"to-lax":{t:"En Route to Pickup",i:"\uD83D\uDE90",c:"status-running",f:"PRICELESS",o:"PICKUP"},"at-office":{t:"Boarding at Office",i:"\u2705",c:"status-parked",f:"PRICELESS",o:"PICKUP"},"at-lax":{t:"At Airport (Loading)",i:"\uD83D\uDC4B",c:"status-parked",f:"PICKUP",o:"PRICELESS"}};
 var PT=12e5,ld=null;
 async function poll(){try{var r=await fetch("/api/shuttles"),d=await r.json();if(d.mode==="waiting"||!d.shuttles.length){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}var s=d.shuttles[0],a=s.timestamp?Date.now()-new Date(s.timestamp).getTime():0,pl=s.speed===0&&a>=PT,p=[s.lat,s.lng];if(!sm)sm=L.marker(p,{icon:si}).addTo(m);else sm.setLatLng(p);if(pl){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}document.getElementById("waiting").classList.add("hidden");document.getElementById("parked-panel").classList.remove("active");document.getElementById("active-content").classList.remove("hidden");var di=D[s.direction]||D["to-office"];document.getElementById("status-dir").className="status-direction "+di.c;document.getElementById("status-icon-el").textContent=di.i;var etaInline=(!ip&&s.prediction)?(" in "+s.prediction.eta+" min"):"";document.getElementById("status-text").textContent="Shuttle 1 \u2192 "+di.t+etaInline;if(s.timestamp){var ag=Math.round((Date.now()-new Date(s.timestamp).getTime())/1e3);document.getElementById("status-time").textContent=ag<60?ag+"s ago":Math.round(ag/60)+"m ago"}var es=document.getElementById("eta-section"),ip=s.direction==="at-office"||s.direction==="at-lax";if(ip){es.classList.add("eta-parked");document.getElementById("eta-num").textContent=s.direction==="at-lax"?"HERE":"READY";document.getElementById("eta-unit").textContent=s.direction==="at-lax"?"LOOK FOR OUR SHUTTLE":"SHUTTLE DEPARTING SOON";document.getElementById("eta-label").textContent="YOUR RIDE IS";document.getElementById("eta-source").textContent=""}else{es.classList.remove("eta-parked");document.getElementById("eta-num").textContent=s.prediction.eta;document.getElementById("eta-unit").textContent="MINUTES";document.getElementById("eta-label").textContent="ESTIMATED ARRIVAL";var src=document.getElementById("eta-source");if(s.prediction.learned){var co=s.prediction.confidence,mo=s.prediction.methods||1,cb=co>=80?"\u2588\u2588\u2588\u2588":co>=50?"\u2588\u2588\u2588\u2591":co>=25?"\u2588\u2588\u2591\u2591":"\u2588\u2591\u2591\u2591";src.innerHTML="\u26A1 "+mo+" model"+(mo>1?"s":"")+" \u00B7 "+cb+" "+co+"% confidence";src.className="eta-smart learned"}else{src.textContent=s.prediction.source;src.className="eta-smart"}}document.getElementById("hp-from").textContent=di.f;document.getElementById("hp-to").textContent=di.o;document.getElementById("hp-pct").textContent=s.progress+"%";document.getElementById("hp-fill").style.width=s.progress+"%";var tk=document.getElementById("hp-track");tk.className="hp-track";if(ip)tk.classList.add("hp-gold");else if(s.progress>75)tk.classList.add("hp-green");else if(s.progress>30)tk.classList.add("hp-blue");else tk.classList.add("hp-red");var ae=document.getElementById("avg-trip"),ad=s.direction.indexOf("office")>=0?(d.avgTrips?d.avgTrips.toOffice:null):(d.avgTrips?d.avgTrips.toLax:null);if(ad&&ad.avgMin>0){ae.style.display="flex";document.getElementById("avg-trip-val").textContent=ad.avgMin}else ae.style.display="none";tr.push(p);if(tr.length>200)tr=tr.slice(-200);if(s.direction!==ld)tr=[p];ld=s.direction;if(tl)tl.forEach(function(l){m.removeLayer(l)});tl=[];if(tr.length>1){tl.push(L.polyline(tr,{color:"#3B82F6",weight:12,opacity:.1,lineCap:"round",lineJoin:"round"}).addTo(m));tl.push(L.polyline(tr,{color:"#60A5FA",weight:4,opacity:.6,lineCap:"round",lineJoin:"round"}).addTo(m))}m.setView(C,16,{animate:!0,duration:1})}catch(e){console.error("Poll:",e)}}
-var MS=["Your shuttle is on the way. Thank you for your patience.","Pickup times may vary during busy hours.","We are committed to fast, safe, and reliable service.","Our team will assist you shortly."],mi=0;
-function rm(){var e=document.getElementById("rotating-msg");e.style.opacity="0";setTimeout(function(){mi=(mi+1)%MS.length;e.textContent=MS[mi];e.style.opacity="1"},500)}setInterval(rm,1e4);
+var slides=[
+{icon:"\uD83E\uDEB1",main:"Please wait in the lobby",sub:"or designated pickup area"},
+{icon:"\uD83D\uDD04",main:"Shuttle runs continuously",sub:"between the airport and our office"},
+{icon:"\u23F0",main:"Average Wait: 8\u201312 min",sub:"times may vary during busy hours"},
+{icon:"\uD83D\uDE90",main:"Your shuttle is on the way",sub:"thank you for your patience"},
+{icon:"\u2764\uFE0F",main:"Fast, safe & reliable service",sub:"our team will assist you shortly"}
+],si=0;
+function nextSlide(){var el=document.getElementById("carousel-slide");el.innerHTML="<div class='carousel-icon'>"+slides[si].icon+"</div><div class='carousel-main'>"+slides[si].main+"</div><div class='carousel-sub'>"+slides[si].sub+"</div>";el.style.animation="none";el.offsetHeight;el.style.animation="fadeSlide .6s ease";si=(si+1)%slides.length}
+nextSlide();setInterval(nextSlide,8e3);
 async function bs(){try{var r=await fetch("/api/brain"),d=await r.json();if(d.totalTrips>0)document.getElementById("brain-stats").textContent="BRAIN: "+d.totalTrips+" trips learned"+(d.avgDurationMin?" \u00B7 avg "+d.avgDurationMin+"min":"")}catch(e){}}
 poll();setInterval(poll,8e3);bs();setInterval(bs,6e4);
 </script>
