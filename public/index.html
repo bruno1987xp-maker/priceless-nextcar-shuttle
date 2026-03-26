@@ -10,7 +10,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0A0E1A;--panel-bg:#0D1220;--card-border:rgba(255,255,255,0.06);--blue:#3B82F6;--green:#10B981;--gold:#F59E0B;--text:#F9FAFB;--text-dim:#6B7280;--text-muted:#4B5563;--panel-width:280px;--ticker-h:36px}
+:root{--bg:#0A0E1A;--panel-bg:#0D1220;--card-border:rgba(255,255,255,0.06);--blue:#3B82F6;--green:#10B981;--gold:#F59E0B;--text:#F9FAFB;--text-dim:#6B7280;--text-muted:#4B5563;--panel-width:280px;--ticker-h:48px}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
 
 /* ═══ LAYOUT ═══ */
@@ -23,15 +23,15 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
 .ticker{height:var(--ticker-h);overflow:hidden;display:flex;align-items:center;white-space:nowrap;position:relative;z-index:500}
 .ticker-top{background:linear-gradient(90deg,rgba(30,58,95,0.95),rgba(13,18,32,0.95));border-bottom:1px solid rgba(59,130,246,0.2)}
 .ticker-bottom{background:linear-gradient(90deg,rgba(13,18,32,0.95),rgba(6,78,59,0.95));border-top:1px solid rgba(16,185,129,0.2)}
-.ticker-tag{padding:0 14px;height:100%;display:flex;align-items:center;font-size:10px;font-weight:800;letter-spacing:1.5px;flex-shrink:0;z-index:2}
+.ticker-tag{padding:0 18px;height:100%;display:flex;align-items:center;font-size:14px;font-weight:800;letter-spacing:1.5px;flex-shrink:0;z-index:2}
 .ticker-top .ticker-tag{background:var(--blue);color:#fff}
 .ticker-bottom .ticker-tag{background:var(--green);color:#fff}
 .ticker-scroll{display:flex;animation-timing-function:linear;animation-iteration-count:infinite}
 .ticker-top .ticker-scroll{animation-name:scrollLeft;animation-duration:30s}
 .ticker-bottom .ticker-scroll{animation-name:scrollLeft;animation-duration:35s}
 @keyframes scrollLeft{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-.ticker-item{display:flex;align-items:center;gap:8px;padding:0 30px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.85);flex-shrink:0}
-.ticker-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.ticker-item{display:flex;align-items:center;gap:10px;padding:0 40px;font-size:18px;font-weight:600;color:rgba(255,255,255,0.85);flex-shrink:0}
+.ticker-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 .ticker-top .ticker-dot{background:var(--blue)}
 .ticker-bottom .ticker-dot{background:var(--green)}
 
