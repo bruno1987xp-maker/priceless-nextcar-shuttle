@@ -10,47 +10,66 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0A0E1A;--panel-bg:#0D1220;--card-border:rgba(255,255,255,0.06);--blue:#3B82F6;--green:#10B981;--gold:#F59E0B;--red:#EF4444;--text:#F9FAFB;--text-dim:#6B7280;--text-muted:#4B5563;--panel-width:280px}
+:root{--bg:#0A0E1A;--panel-bg:#0D1220;--card-border:rgba(255,255,255,0.06);--blue:#3B82F6;--green:#10B981;--gold:#F59E0B;--text:#F9FAFB;--text-dim:#6B7280;--text-muted:#4B5563;--panel-width:280px;--ticker-h:36px}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+
+/* ═══ LAYOUT ═══ */
 .layout{display:flex;height:100vh;width:100vw}
-.map-side{flex:1;position:relative}
-#map{width:100%;height:100%;background:#1a2e1a}
+.map-side{flex:1;position:relative;display:flex;flex-direction:column}
+#map{flex:1;background:#1a2e1a}
 .leaflet-control-zoom,.leaflet-control-attribution{display:none!important}
+
+/* ═══ CNN TICKERS ═══ */
+.ticker{height:var(--ticker-h);overflow:hidden;display:flex;align-items:center;white-space:nowrap;position:relative;z-index:500}
+.ticker-top{background:linear-gradient(90deg,rgba(30,58,95,0.95),rgba(13,18,32,0.95));border-bottom:1px solid rgba(59,130,246,0.2)}
+.ticker-bottom{background:linear-gradient(90deg,rgba(13,18,32,0.95),rgba(6,78,59,0.95));border-top:1px solid rgba(16,185,129,0.2)}
+.ticker-tag{padding:0 14px;height:100%;display:flex;align-items:center;font-size:10px;font-weight:800;letter-spacing:1.5px;flex-shrink:0;z-index:2}
+.ticker-top .ticker-tag{background:var(--blue);color:#fff}
+.ticker-bottom .ticker-tag{background:var(--green);color:#fff}
+.ticker-scroll{display:flex;animation-timing-function:linear;animation-iteration-count:infinite}
+.ticker-top .ticker-scroll{animation-name:scrollLeft;animation-duration:30s}
+.ticker-bottom .ticker-scroll{animation-name:scrollLeft;animation-duration:35s}
+@keyframes scrollLeft{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.ticker-item{display:flex;align-items:center;gap:8px;padding:0 30px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.85);flex-shrink:0}
+.ticker-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.ticker-top .ticker-dot{background:var(--blue)}
+.ticker-bottom .ticker-dot{background:var(--green)}
+
+/* ═══ RIGHT PANEL ═══ */
 .info-panel{width:var(--panel-width);height:100vh;background:var(--panel-bg);border-left:1px solid var(--card-border);display:flex;flex-direction:column;overflow:hidden}
-.panel-header{padding:20px 24px 16px;border-bottom:1px solid var(--card-border);text-align:center}
-.panel-logos{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px}
-.p-badge{padding:4px 10px;border-radius:5px;font-size:10px;font-weight:800;letter-spacing:1.5px}
+.panel-header{padding:16px 20px 12px;border-bottom:1px solid var(--card-border);text-align:center}
+.panel-logos{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:8px}
+.p-badge{padding:3px 8px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:1.2px}
 .p-badge-blue{background:linear-gradient(135deg,#1E3A5F,#2563EB);color:#93C5FD;border:1px solid rgba(59,130,246,0.3)}
 .p-badge-green{background:linear-gradient(135deg,#064E3B,#059669);color:#6EE7B7;border:1px solid rgba(16,185,129,0.3)}
-.panel-title{font-size:13px;font-weight:700;color:var(--text)}
-.panel-address{font-size:9px;color:var(--text-muted);margin-top:2px;letter-spacing:.5px}
-.panel-live-row{display:flex;align-items:center;justify-content:space-between;padding:10px 24px;border-bottom:1px solid var(--card-border)}
-.live-pill{display:flex;align-items:center;gap:6px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:20px;padding:4px 12px}
-.live-dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 2s ease infinite}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5)}50%{box-shadow:0 0 0 6px rgba(16,185,129,0)}}
-.live-text{font-size:9px;font-weight:700;color:var(--green);letter-spacing:1px}
-.panel-clock{font-size:18px;font-weight:800;color:rgba(255,255,255,0.6);font-variant-numeric:tabular-nums}
-.status-section{padding:16px 24px;border-bottom:1px solid var(--card-border);text-align:center}
-.status-label{font-size:8px;font-weight:700;color:var(--text-muted);letter-spacing:2px;margin-bottom:8px}
-.status-direction{display:flex;align-items:center;justify-content:center;gap:10px}
-.status-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
-.status-running .status-icon{background:rgba(16,185,129,0.15)}
-.status-parked .status-icon{background:rgba(245,158,11,0.15)}
-.status-text{font-size:12px;font-weight:800;letter-spacing:.3px}
+.panel-title{font-size:12px;font-weight:700;color:var(--text)}
+.panel-address{font-size:8px;color:var(--text-muted);margin-top:2px}
+.panel-live-row{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;border-bottom:1px solid var(--card-border)}
+.live-pill{display:flex;align-items:center;gap:5px;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);border-radius:16px;padding:3px 10px}
+.live-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s ease infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0.5)}50%{box-shadow:0 0 0 5px rgba(16,185,129,0)}}
+.live-text{font-size:8px;font-weight:700;color:var(--green);letter-spacing:1px}
+.panel-clock{font-size:16px;font-weight:800;color:rgba(255,255,255,0.6);font-variant-numeric:tabular-nums}
+
+/* Status */
+.status-section{padding:14px 20px;border-bottom:1px solid var(--card-border);text-align:center}
+.status-label{font-size:7px;font-weight:700;color:var(--text-muted);letter-spacing:2px;margin-bottom:6px}
+.status-text{font-size:11px;font-weight:800;letter-spacing:.2px}
 .status-running .status-text{color:var(--green)}
 .status-parked .status-text{color:var(--gold)}
-.status-updated{font-size:9px;color:var(--text-muted);margin-top:6px}
-.eta-section{padding:20px 24px;text-align:center;flex-shrink:0}
-.eta-label{font-size:9px;font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
-.eta-number{font-size:60px;font-weight:900;line-height:1;letter-spacing:-3px;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#FFFFFF 0%,#93C5FD 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.eta-unit{font-size:18px;font-weight:600;color:var(--text-dim);margin-top:2px;letter-spacing:3px;text-transform:uppercase}
-.status-updated{display:none}
-.eta-parked .eta-number{font-size:36px;letter-spacing:-1px;background:linear-gradient(180deg,#FBBF24 0%,#F59E0B 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.hp-section{padding:0 24px 16px}
-.hp-labels{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
-.hp-endpoint{font-size:8px;font-weight:700;color:var(--text-muted);letter-spacing:1.5px}
-.hp-pct{font-size:13px;font-weight:900;color:var(--blue);font-variant-numeric:tabular-nums}
-.hp-track{height:28px;background:rgba(0,0,0,0.6);border-radius:6px;border:2px solid rgba(255,255,255,0.06);padding:4px;position:relative;overflow:hidden}
+
+/* ETA */
+.eta-section{padding:16px 20px;text-align:center}
+.eta-number{font-size:64px;font-weight:900;line-height:1;letter-spacing:-4px;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#FFFFFF 0%,#93C5FD 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.eta-unit{font-size:14px;font-weight:600;color:var(--text-dim);margin-top:2px;letter-spacing:2px;text-transform:uppercase}
+.eta-parked .eta-number{font-size:32px;letter-spacing:-1px;background:linear-gradient(180deg,#FBBF24 0%,#F59E0B 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+
+/* HP Bar */
+.hp-section{padding:0 20px 14px}
+.hp-labels{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.hp-endpoint{font-size:7px;font-weight:700;color:var(--text-muted);letter-spacing:1px}
+.hp-pct{font-size:11px;font-weight:900;color:var(--blue);font-variant-numeric:tabular-nums}
+.hp-track{height:24px;background:rgba(0,0,0,0.6);border-radius:5px;border:2px solid rgba(255,255,255,0.06);padding:3px;position:relative;overflow:hidden}
 .hp-track::after{content:"";position:absolute;top:0;left:0;right:0;bottom:0;background:repeating-linear-gradient(90deg,transparent 0,transparent 10px,rgba(0,0,0,0.2) 10px,rgba(0,0,0,0.2) 11px);z-index:2;pointer-events:none}
 .hp-fill{height:100%;border-radius:3px;position:relative;transition:width 1s ease;min-width:4px}
 .hp-fill::after{content:"";position:absolute;top:0;left:0;right:0;height:50%;background:linear-gradient(180deg,rgba(255,255,255,0.3) 0%,transparent 100%);border-radius:3px 3px 0 0}
@@ -60,35 +79,41 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
 .hp-blue .hp-fill{background:linear-gradient(90deg,#1D4ED8,#3B82F6,#60A5FA)}
 .hp-gold .hp-fill{background:linear-gradient(90deg,#B45309,#F59E0B,#FBBF24)}
 .hp-red .hp-fill{background:linear-gradient(90deg,#B91C1C,#EF4444,#F87171)}
-.avg-trip{padding:10px 24px;border-top:1px solid rgba(255,255,255,0.04);display:flex;align-items:center;justify-content:center;gap:6px}
-.avg-trip-text{font-size:11px;color:var(--text-dim)}
-.avg-trip-value{font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
-.panel-divider{height:1px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.2),transparent);margin:0 24px}
-.info-carousel{flex:1;display:flex;align-items:center;justify-content:center;padding:16px 20px;text-align:center}
+
+/* Carousel */
+.info-carousel{flex:1;display:flex;align-items:center;justify-content:center;padding:12px 16px;text-align:center}
 .carousel-slide{animation:fadeSlide .6s ease}
-@keyframes fadeSlide{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.carousel-icon{font-size:24px;margin-bottom:8px}
-.carousel-main{font-size:13px;font-weight:700;color:#fff;line-height:1.5;margin-bottom:4px}
-.carousel-sub{font-size:10px;color:var(--text-dim);line-height:1.4}
-.panel-footer{padding:12px 24px;border-top:1px solid var(--card-border);text-align:center}
-.footer-support{font-size:10px;color:var(--text-muted)}
-.brain-stats{font-size:8px;color:rgba(107,114,128,0.4);margin-top:4px}
-.parked-panel{display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px 24px;flex:1;gap:20px}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.carousel-icon{font-size:20px;margin-bottom:6px}
+.carousel-main{font-size:11px;font-weight:700;color:#fff;line-height:1.4;margin-bottom:3px}
+.carousel-sub{font-size:9px;color:var(--text-dim);line-height:1.3}
+
+/* Footer */
+.panel-footer{padding:10px 20px;border-top:1px solid var(--card-border);text-align:center}
+.footer-support{font-size:9px;color:var(--text-muted)}
+.brain-stats{font-size:7px;color:rgba(107,114,128,0.4);margin-top:3px}
+
+/* Parked */
+.parked-panel{display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;flex:1;gap:16px}
 .parked-panel.active{display:flex}
-.parked-logos{display:flex;align-items:center;gap:12px}
-.parked-badge{padding:10px 20px!important;font-size:16px!important;border-radius:8px!important;letter-spacing:2px!important}
-.parked-amp{font-size:18px;color:var(--text-muted);font-weight:300}
-.parked-divider{width:60px;height:2px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.3),transparent)}
-.parked-title{font-size:20px;font-weight:800;color:#fff}
-.parked-msg{font-size:13px;color:var(--text-dim);line-height:1.6}
+.parked-logos{display:flex;align-items:center;gap:10px}
+.parked-badge{padding:8px 16px!important;font-size:14px!important;border-radius:6px!important;letter-spacing:2px!important}
+.parked-amp{font-size:16px;color:var(--text-muted);font-weight:300}
+.parked-divider{width:50px;height:2px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.3),transparent)}
+.parked-title{font-size:18px;font-weight:800;color:#fff}
+.parked-msg{font-size:12px;color:var(--text-dim);line-height:1.5}
 .active-content{display:flex;flex-direction:column;flex:1}
 .active-content.hidden{display:none}
+
+/* Waiting */
 .waiting-overlay{position:fixed;top:0;left:0;right:0;bottom:0;z-index:2000;background:rgba(10,14,26,0.85);backdrop-filter:blur(10px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
 .waiting-overlay.hidden{display:none}
 .waiting-spinner{width:48px;height:48px;border:3px solid rgba(59,130,246,0.2);border-top-color:var(--blue);border-radius:50%;animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .waiting-text{font-size:16px;font-weight:600;color:var(--text-dim)}
 .waiting-sub{font-size:12px;color:var(--text-muted)}
+
+/* Map markers */
 .shuttle-marker{background:none;border:none}
 .van-marker{position:relative;width:44px;height:44px}
 .van-ping{position:absolute;top:50%;left:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:2px solid rgba(59,130,246,0.4);animation:radarPing 2.5s ease-out infinite}
@@ -103,44 +128,71 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
 <body>
 <div class="waiting-overlay" id="waiting"><div class="waiting-spinner"></div><div class="waiting-text">Connecting to shuttle GPS...</div><div class="waiting-sub">Signal will appear when the shuttle starts moving</div></div>
 <div class="layout">
-<div class="map-side"><div id="map"></div></div>
-<div class="info-panel">
-<div class="panel-header"><div class="panel-logos"><div class="p-badge p-badge-blue">PRICELESS</div><div class="p-badge p-badge-green">NEXTCAR</div></div><div class="panel-title">Shuttle Tracker</div><div class="panel-address">9750 Airport Blvd, Los Angeles</div></div>
-<div class="panel-live-row"><div class="live-pill"><div class="live-dot"></div><span class="live-text">LIVE</span></div><div class="panel-clock" id="clock">--:--</div></div>
-<div class="active-content" id="active-content">
-<div class="status-section"><div class="status-label">SHUTTLE STATUS &#x2013; LIVE</div><div class="status-direction status-running" id="status-dir"><div class="status-icon" id="status-icon-el">&#x1F690;</div><span class="status-text" id="status-text">CONNECTING...</span></div></div>
-<div class="eta-section" id="eta-section"><div class="eta-number" id="eta-num">--</div><div class="eta-unit" id="eta-unit">MINUTES</div></div>
-<div class="hp-section"><div class="hp-labels"><span class="hp-endpoint" id="hp-from">PICKUP</span><span class="hp-pct" id="hp-pct">0%</span><span class="hp-endpoint" id="hp-to">OFFICE</span></div><div class="hp-track hp-blue" id="hp-track"><div class="hp-fill" id="hp-fill" style="width:0%"></div></div></div>
-<div class="panel-divider"></div>
-<div class="info-carousel"><div class="carousel-slide" id="carousel-slide"></div></div>
+<div class="map-side">
+  <!-- TOP TICKER -->
+  <div class="ticker ticker-top">
+    <div class="ticker-tag">SHUTTLE</div>
+    <div class="ticker-scroll" id="ticker-top-scroll">
+      <div class="ticker-item"><div class="ticker-dot"></div>Shuttle 1 is actively tracking</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Your shuttle runs continuously between the airport and our office</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Average wait time: 8-12 minutes</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Please wait in the lobby or designated pickup area</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Shuttle 1 is actively tracking</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Your shuttle runs continuously between the airport and our office</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Average wait time: 8-12 minutes</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Please wait in the lobby or designated pickup area</div>
+    </div>
+  </div>
+  <!-- MAP -->
+  <div id="map"></div>
+  <!-- BOTTOM TICKER -->
+  <div class="ticker ticker-bottom">
+    <div class="ticker-tag">INFO</div>
+    <div class="ticker-scroll" id="ticker-bottom-scroll">
+      <div class="ticker-item"><div class="ticker-dot"></div>Your shuttle is on the way. Thank you for your patience.</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Pickup times may vary during busy hours</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>We are committed to fast, safe, and reliable service</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Our team will assist you shortly</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Need help? Please see our front desk team</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Your shuttle is on the way. Thank you for your patience.</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Pickup times may vary during busy hours</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>We are committed to fast, safe, and reliable service</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Our team will assist you shortly</div>
+      <div class="ticker-item"><div class="ticker-dot"></div>Need help? Please see our front desk team</div>
+    </div>
+  </div>
 </div>
-<div class="parked-panel" id="parked-panel"><div class="parked-logos"><div class="p-badge p-badge-blue parked-badge">PRICELESS</div><div class="parked-amp">&amp;</div><div class="p-badge p-badge-green parked-badge">NEXTCAR</div></div><div class="parked-divider"></div><div class="parked-title">Shuttle on Standby</div><div class="parked-msg">Please check with our front desk<br>for shuttle availability.</div></div>
-<div class="panel-footer"><div class="footer-support">Need help? Please see our front desk team.</div><div class="brain-stats" id="brain-stats"></div></div>
+<!-- RIGHT PANEL -->
+<div class="info-panel">
+  <div class="panel-header"><div class="panel-logos"><div class="p-badge p-badge-blue">PRICELESS</div><div class="p-badge p-badge-green">NEXTCAR</div></div><div class="panel-title">Shuttle Tracker</div><div class="panel-address">9750 Airport Blvd, Los Angeles</div></div>
+  <div class="panel-live-row"><div class="live-pill"><div class="live-dot"></div><span class="live-text">LIVE</span></div><div class="panel-clock" id="clock">--:--</div></div>
+  <div class="active-content" id="active-content">
+    <div class="status-section"><div class="status-label">SHUTTLE STATUS</div><div class="status-direction status-running" id="status-dir"><span class="status-text" id="status-text">CONNECTING...</span></div></div>
+    <div class="eta-section" id="eta-section"><div class="eta-number" id="eta-num">--</div><div class="eta-unit" id="eta-unit">MINUTES</div></div>
+    <div class="hp-section"><div class="hp-labels"><span class="hp-endpoint" id="hp-from">PICKUP</span><span class="hp-pct" id="hp-pct">0%</span><span class="hp-endpoint" id="hp-to">OFFICE</span></div><div class="hp-track hp-blue" id="hp-track"><div class="hp-fill" id="hp-fill" style="width:0%"></div></div></div>
+    <div class="info-carousel"><div class="carousel-slide" id="carousel-slide"></div></div>
+  </div>
+  <div class="parked-panel" id="parked-panel"><div class="parked-logos"><div class="p-badge p-badge-blue parked-badge">PRICELESS</div><div class="parked-amp">&amp;</div><div class="p-badge p-badge-green parked-badge">NEXTCAR</div></div><div class="parked-divider"></div><div class="parked-title">Shuttle on Standby</div><div class="parked-msg">Please check with our front desk for shuttle availability.</div></div>
+  <div class="panel-footer"><div class="footer-support">Need help? See our front desk team.</div><div class="brain-stats" id="brain-stats"></div></div>
 </div>
 </div>
 <script>
 var O=[33.9479,-118.384],X=[33.9497,-118.3918],C=[(O[0]+X[0])/2,(O[1]+X[1])/2];
-var m=L.map("map",{center:C,zoom:16,zoomControl:!1,attributionControl:!1,dragging:!1,scrollWheelZoom:!1,doubleClickZoom:!1,touchZoom:!1});
-L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19}).addTo(m);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:19,opacity:.6}).addTo(m);
-L.marker(O,{icon:L.divIcon({className:"marker-label office-label",html:"<img src='https://www.pricelesscarrental.com/smsite/npauto_7/media/imgs/4056_priceless-logo-200x60.png' style='height:16px;vertical-align:middle;margin-right:3px;filter:brightness(1.5)'><img src='https://www.nextcarrental.com/smsite/npauto_8/media/imgs/36557_nextcar-logo.png' style='height:16px;vertical-align:middle;filter:brightness(1.5)'>",iconSize:[130,26],iconAnchor:[65,13]})}).addTo(m);
-L.marker(X,{icon:L.divIcon({className:"marker-label lax-label",html:"\u2708\uFE0F PICKUP \u00B7 DROP OFF",iconSize:[130,24],iconAnchor:[65,12]})}).addTo(m);
-var si=L.divIcon({className:"shuttle-marker",html:"<div class='van-marker'><div class='van-ping'></div><div class='van-body'>\uD83D\uDE90</div><div class='van-arrow'></div></div>",iconSize:[44,50],iconAnchor:[22,25]});
-var sm=null,tr=[],tl=[];
+var mp=L.map("map",{center:C,zoom:16,zoomControl:!1,attributionControl:!1,dragging:!1,scrollWheelZoom:!1,doubleClickZoom:!1,touchZoom:!1});
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19}).addTo(mp);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:19,opacity:.6}).addTo(mp);
+L.marker(O,{icon:L.divIcon({className:"marker-label office-label",html:"<img src='https://www.pricelesscarrental.com/smsite/npauto_7/media/imgs/4056_priceless-logo-200x60.png' style='height:16px;vertical-align:middle;margin-right:3px;filter:brightness(1.5)'><img src='https://www.nextcarrental.com/smsite/npauto_8/media/imgs/36557_nextcar-logo.png' style='height:16px;vertical-align:middle;filter:brightness(1.5)'>",iconSize:[130,26],iconAnchor:[65,13]})}).addTo(mp);
+L.marker(X,{icon:L.divIcon({className:"marker-label lax-label",html:"\u2708\uFE0F PICKUP \u00B7 DROP OFF",iconSize:[130,24],iconAnchor:[65,12]})}).addTo(mp);
+var vanIcon=L.divIcon({className:"shuttle-marker",html:"<div class='van-marker'><div class='van-ping'></div><div class='van-body'>\uD83D\uDE90</div><div class='van-arrow'></div></div>",iconSize:[44,50],iconAnchor:[22,25]});
+var sMkr=null,trail=[],tLine=[];
 function uc(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:!0})}setInterval(uc,1e3);uc();
-var D={"to-office":{t:"Arriving",i:"\uD83D\uDE90",c:"status-running",f:"PICKUP",o:"PRICELESS"},"to-lax":{t:"En Route to Pickup",i:"\uD83D\uDE90",c:"status-running",f:"PRICELESS",o:"PICKUP"},"at-office":{t:"Boarding at Office",i:"\u2705",c:"status-parked",f:"PRICELESS",o:"PICKUP"},"at-lax":{t:"At Airport (Loading)",i:"\uD83D\uDC4B",c:"status-parked",f:"PICKUP",o:"PRICELESS"}};
-var PT=12e5,ld=null;
-async function poll(){try{var r=await fetch("/api/shuttles"),d=await r.json();if(d.mode==="waiting"||!d.shuttles.length){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}var s=d.shuttles[0],a=s.timestamp?Date.now()-new Date(s.timestamp).getTime():0,pl=s.speed===0&&a>=PT,p=[s.lat,s.lng];if(!sm)sm=L.marker(p,{icon:si}).addTo(m);else sm.setLatLng(p);if(pl){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}document.getElementById("waiting").classList.add("hidden");document.getElementById("parked-panel").classList.remove("active");document.getElementById("active-content").classList.remove("hidden");var di=D[s.direction]||D["to-office"];document.getElementById("status-dir").className="status-direction "+di.c;document.getElementById("status-icon-el").textContent=di.i;var etaInline=(!ip&&s.prediction)?(" in "+s.prediction.eta+" min"):"";document.getElementById("status-text").textContent="Shuttle 1 \u2192 "+di.t+etaInline;if(s.timestamp){var ag=Math.round((Date.now()-new Date(s.timestamp).getTime())/1e3);document.getElementById("status-time").textContent=ag<60?ag+"s ago":Math.round(ag/60)+"m ago"}var es=document.getElementById("eta-section"),ip=s.direction==="at-office"||s.direction==="at-lax";if(ip){es.classList.add("eta-parked");document.getElementById("eta-num").textContent=s.direction==="at-lax"?"HERE":"READY";document.getElementById("eta-unit").textContent=s.direction==="at-lax"?"LOOK FOR OUR SHUTTLE":"SHUTTLE DEPARTING SOON";document.getElementById("eta-label").textContent="YOUR RIDE IS";document.getElementById("eta-source").textContent=""}else{es.classList.remove("eta-parked");document.getElementById("eta-num").textContent=s.prediction.eta;document.getElementById("eta-unit").textContent="MINUTES";document.getElementById("eta-label").textContent="ESTIMATED ARRIVAL";var src=document.getElementById("eta-source");if(s.prediction.learned){var co=s.prediction.confidence,mo=s.prediction.methods||1,cb=co>=80?"\u2588\u2588\u2588\u2588":co>=50?"\u2588\u2588\u2588\u2591":co>=25?"\u2588\u2588\u2591\u2591":"\u2588\u2591\u2591\u2591";src.innerHTML="\u26A1 "+mo+" model"+(mo>1?"s":"")+" \u00B7 "+cb+" "+co+"% confidence";src.className="eta-smart learned"}else{src.textContent=s.prediction.source;src.className="eta-smart"}}document.getElementById("hp-from").textContent=di.f;document.getElementById("hp-to").textContent=di.o;document.getElementById("hp-pct").textContent=s.progress+"%";document.getElementById("hp-fill").style.width=s.progress+"%";var tk=document.getElementById("hp-track");tk.className="hp-track";if(ip)tk.classList.add("hp-gold");else if(s.progress>75)tk.classList.add("hp-green");else if(s.progress>30)tk.classList.add("hp-blue");else tk.classList.add("hp-red");var ae=document.getElementById("avg-trip"),ad=s.direction.indexOf("office")>=0?(d.avgTrips?d.avgTrips.toOffice:null):(d.avgTrips?d.avgTrips.toLax:null);if(ad&&ad.avgMin>0){ae.style.display="flex";document.getElementById("avg-trip-val").textContent=ad.avgMin}else ae.style.display="none";tr.push(p);if(tr.length>200)tr=tr.slice(-200);if(s.direction!==ld)tr=[p];ld=s.direction;if(tl)tl.forEach(function(l){m.removeLayer(l)});tl=[];if(tr.length>1){tl.push(L.polyline(tr,{color:"#3B82F6",weight:12,opacity:.1,lineCap:"round",lineJoin:"round"}).addTo(m));tl.push(L.polyline(tr,{color:"#60A5FA",weight:4,opacity:.6,lineCap:"round",lineJoin:"round"}).addTo(m))}m.setView(C,16,{animate:!0,duration:1})}catch(e){console.error("Poll:",e)}}
-var slides=[
-{icon:"\uD83E\uDEB1",main:"Please wait in the lobby",sub:"or designated pickup area"},
-{icon:"\uD83D\uDD04",main:"Shuttle runs continuously",sub:"between the airport and our office"},
-{icon:"\u23F0",main:"Average Wait: 8\u201312 min",sub:"times may vary during busy hours"},
-{icon:"\uD83D\uDE90",main:"Your shuttle is on the way",sub:"thank you for your patience"},
-{icon:"\u2764\uFE0F",main:"Fast, safe & reliable service",sub:"our team will assist you shortly"}
-],si=0;
-function nextSlide(){var el=document.getElementById("carousel-slide");el.innerHTML="<div class='carousel-icon'>"+slides[si].icon+"</div><div class='carousel-main'>"+slides[si].main+"</div><div class='carousel-sub'>"+slides[si].sub+"</div>";el.style.animation="none";el.offsetHeight;el.style.animation="fadeSlide .6s ease";si=(si+1)%slides.length}
+var D={"to-office":{t:"Arriving",c:"status-running",f:"PICKUP",o:"PRICELESS"},"to-lax":{t:"En Route to Pickup",c:"status-running",f:"PRICELESS",o:"PICKUP"},"at-office":{t:"Boarding at Office",c:"status-parked",f:"PRICELESS",o:"PICKUP"},"at-lax":{t:"At Airport (Loading)",c:"status-parked",f:"PICKUP",o:"PRICELESS"}};
+var PT=12e5,lastDir=null;
+async function poll(){try{var r=await fetch("/api/shuttles"),d=await r.json();if(d.mode==="waiting"||!d.shuttles.length){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}var s=d.shuttles[0],age=s.timestamp?Date.now()-new Date(s.timestamp).getTime():0,parkedLong=s.speed===0&&age>=PT,pos=[s.lat,s.lng];if(!sMkr)sMkr=L.marker(pos,{icon:vanIcon}).addTo(mp);else sMkr.setLatLng(pos);if(parkedLong){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}document.getElementById("waiting").classList.add("hidden");document.getElementById("parked-panel").classList.remove("active");document.getElementById("active-content").classList.remove("hidden");var di=D[s.direction]||D["to-office"];var isParked=s.direction==="at-office"||s.direction==="at-lax";document.getElementById("status-dir").className="status-direction "+di.c;var etaTxt=(!isParked&&s.prediction)?" in "+s.prediction.eta+" min":"";document.getElementById("status-text").textContent="Shuttle 1 \u2192 "+di.t+etaTxt;var es=document.getElementById("eta-section");if(isParked){es.classList.add("eta-parked");document.getElementById("eta-num").textContent=s.direction==="at-lax"?"HERE":"READY";document.getElementById("eta-unit").textContent=s.direction==="at-lax"?"AT AIRPORT":"DEPARTING SOON"}else{es.classList.remove("eta-parked");document.getElementById("eta-num").textContent=s.prediction.eta;document.getElementById("eta-unit").textContent="MINUTES"}document.getElementById("hp-from").textContent=di.f;document.getElementById("hp-to").textContent=di.o;document.getElementById("hp-pct").textContent=s.progress+"%";document.getElementById("hp-fill").style.width=s.progress+"%";var tk=document.getElementById("hp-track");tk.className="hp-track";if(isParked)tk.classList.add("hp-gold");else if(s.progress>75)tk.classList.add("hp-green");else if(s.progress>30)tk.classList.add("hp-blue");else tk.classList.add("hp-red");trail.push(pos);if(trail.length>200)trail=trail.slice(-200);if(s.direction!==lastDir)trail=[pos];lastDir=s.direction;if(tLine)tLine.forEach(function(l){mp.removeLayer(l)});tLine=[];if(trail.length>1){tLine.push(L.polyline(trail,{color:"#3B82F6",weight:12,opacity:.1,lineCap:"round",lineJoin:"round"}).addTo(mp));tLine.push(L.polyline(trail,{color:"#60A5FA",weight:4,opacity:.6,lineCap:"round",lineJoin:"round"}).addTo(mp))}mp.setView(C,16,{animate:!0,duration:1})}catch(e){console.error("Poll:",e)}}
+var slides=[{i:"\uD83E\uDEB1",m:"Please wait in the lobby",s:"designated pickup area"},{i:"\u23F0",m:"Avg Wait: 8\u201312 min",s:"varies during busy hours"},{i:"\uD83D\uDE90",m:"Shuttle runs continuously",s:"airport \u2194 office"},{i:"\u2764\uFE0F",m:"Fast, safe & reliable",s:"our team will assist you"}],ci=0;
+function nextSlide(){var el=document.getElementById("carousel-slide");el.innerHTML="<div class='carousel-icon'>"+slides[ci].i+"</div><div class='carousel-main'>"+slides[ci].m+"</div><div class='carousel-sub'>"+slides[ci].s+"</div>";el.style.animation="none";el.offsetHeight;el.style.animation="fadeSlide .6s ease";ci=(ci+1)%slides.length}
 nextSlide();setInterval(nextSlide,8e3);
-async function bs(){try{var r=await fetch("/api/brain"),d=await r.json();if(d.totalTrips>0)document.getElementById("brain-stats").textContent="BRAIN: "+d.totalTrips+" trips learned"+(d.avgDurationMin?" \u00B7 avg "+d.avgDurationMin+"min":"")}catch(e){}}
+async function bs(){try{var r=await fetch("/api/brain"),d=await r.json();if(d.totalTrips>0)document.getElementById("brain-stats").textContent="BRAIN: "+d.totalTrips+" trips"+(d.avgDurationMin?" \u00B7 avg "+d.avgDurationMin+"min":"")}catch(e){}}
 poll();setInterval(poll,8e3);bs();setInterval(bs,6e4);
 </script>
 </body>
