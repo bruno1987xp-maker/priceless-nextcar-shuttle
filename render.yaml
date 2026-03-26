@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: priceless-nextcar-shuttle
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: BOUNCIE_CLIENT_ID
+        sync: false
+      - key: BOUNCIE_CLIENT_SECRET
+        sync: false
+      - key: BOUNCIE_REDIRECT_URI
+        sync: false
+      - key: BOUNCIE_AUTH_CODE
+        sync: false
+      - key: PORT
+        value: 10000
+      - key: POLL_INTERVAL
+        value: 10
