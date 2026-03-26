@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.3, maximum-scale=5, user-scalable=yes">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.01, maximum-scale=10, user-scalable=yes">
 <title>Priceless NextCar Shuttle Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -11,7 +11,8 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0A0E1A;--panel-bg:#0D1220;--card-border:rgba(255,255,255,0.06);--blue:#3B82F6;--green:#10B981;--gold:#F59E0B;--text:#F9FAFB;--text-dim:#6B7280;--text-muted:#4B5563;--panel-width:20vw;--ticker-h:48px}
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:auto;min-height:100vh;-webkit-text-size-adjust:none}
+.layout-wrapper{width:100vw;height:100vh;background:var(--bg)}
 
 /* ═══ LAYOUT ═══ */
 .layout{display:flex;height:100vh;width:100vw}
@@ -127,7 +128,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
 </head>
 <body>
 <div class="waiting-overlay" id="waiting"><div class="waiting-spinner"></div><div class="waiting-text">Connecting to shuttle GPS...</div><div class="waiting-sub">Signal will appear when the shuttle starts moving</div></div>
-<div class="layout">
+<div class="layout-wrapper"><div class="layout">
 <div class="map-side">
   <!-- TOP TICKER -->
   <div class="ticker ticker-top">
@@ -174,6 +175,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overf
   </div>
   <div class="parked-panel" id="parked-panel"><div class="parked-logos"><div class="p-badge p-badge-blue parked-badge">PRICELESS</div><div class="parked-amp">&amp;</div><div class="p-badge p-badge-green parked-badge">NEXTCAR</div></div><div class="parked-divider"></div><div class="parked-title">Shuttle on Standby</div><div class="parked-msg">Please check with our front desk for shuttle availability.</div></div>
   <div class="panel-footer"><div class="footer-support">Need help? See our front desk team.</div><div class="brain-stats" id="brain-stats"></div></div>
+</div>
 </div>
 </div>
 <script>
