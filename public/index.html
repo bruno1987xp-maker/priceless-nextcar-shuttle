@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.01, maximum-scale=10, user-scalable=yes">
+<meta name="viewport" content="width=1400, initial-scale=0.28, minimum-scale=0.1, maximum-scale=10, user-scalable=yes, shrink-to-fit=no">
 <title>Priceless NextCar Shuttle Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -10,7 +10,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0A0E1A;--panel-bg:#0D1220;--card-border:rgba(255,255,255,0.06);--blue:#3B82F6;--green:#10B981;--gold:#F59E0B;--text:#F9FAFB;--text-dim:#6B7280;--text-muted:#4B5563;--panel-width:20vw;--ticker-h:48px}
+:root{--bg:#0A0E1A;--panel-bg:#0D1220;--card-border:rgba(255,255,255,0.06);--blue:#3B82F6;--green:#10B981;--gold:#F59E0B;--text:#F9FAFB;--text-dim:#6B7280;--text-muted:#4B5563;--panel-width:22vw;--ticker-h:48px}
 body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:auto;min-height:100vh;-webkit-text-size-adjust:none}
 .layout-wrapper{width:100vw;height:100vh;background:var(--bg)}
 
@@ -97,11 +97,11 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 /* Parked */
 .parked-panel{display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;flex:1;gap:16px}
 .parked-panel.active{display:flex}
-.parked-logos{display:flex;align-items:center;gap:10px}
-.parked-badge{padding:8px 16px!important;font-size:14px!important;border-radius:6px!important;letter-spacing:2px!important}
+.parked-logos{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center}
+.parked-badge{padding:6px 12px!important;font-size:11px!important;border-radius:6px!important;letter-spacing:1.5px!important}
 .parked-amp{font-size:16px;color:var(--text-muted);font-weight:300}
 .parked-divider{width:50px;height:2px;background:linear-gradient(90deg,transparent,rgba(59,130,246,0.3),transparent)}
-.parked-title{font-size:18px;font-weight:800;color:#fff}
+.parked-title{font-size:16px;font-weight:800;color:#fff}
 .parked-msg{font-size:12px;color:var(--text-dim);line-height:1.5}
 .active-content{display:flex;flex-direction:column;flex:1}
 .active-content.hidden{display:none}
