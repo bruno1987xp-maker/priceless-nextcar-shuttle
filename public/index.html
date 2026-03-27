@@ -181,8 +181,9 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 <script>
 var O=[33.9479,-118.384],X=[33.9497,-118.3918],C=[(O[0]+X[0])/2,(O[1]+X[1])/2];
 var mp=L.map("map",{center:C,zoom:17,zoomControl:!1,attributionControl:!1,dragging:!1,scrollWheelZoom:!1,doubleClickZoom:!1,touchZoom:!1});
-L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19}).addTo(mp);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:19,opacity:.6}).addTo(mp);
+var satLayer=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19});
+var lblLayer=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:19,opacity:.6});
+setTimeout(function(){satLayer.addTo(mp);lblLayer.addTo(mp)},100);
 L.marker(O,{icon:L.divIcon({className:"marker-label office-label",html:"<img src='https://www.pricelesscarrental.com/smsite/npauto_7/media/imgs/4056_priceless-logo-200x60.png' style='height:16px;vertical-align:middle;margin-right:3px;filter:brightness(1.5)'><img src='https://www.nextcarrental.com/smsite/npauto_8/media/imgs/36557_nextcar-logo.png' style='height:16px;vertical-align:middle;filter:brightness(1.5)'>",iconSize:[130,26],iconAnchor:[65,13]})}).addTo(mp);
 L.marker(X,{icon:L.divIcon({className:"marker-label lax-label",html:"\u2708\uFE0F PICKUP \u00B7 DROP OFF",iconSize:[130,24],iconAnchor:[65,12]})}).addTo(mp);
 var vanIcon=L.divIcon({className:"shuttle-marker",html:"<div class='van-marker'><div class='van-ping'></div><div class='van-body'>\uD83D\uDE90</div><div class='van-arrow'></div></div>",iconSize:[44,50],iconAnchor:[22,25]});
