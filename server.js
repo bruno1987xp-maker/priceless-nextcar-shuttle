@@ -573,14 +573,8 @@ function buildShuttleData(pos, index) {
 //  API ENDPOINTS
 // ═══════════════════════════════════════════════════
 app.get("/api/shuttles", (req, res) => {
-  // Filter out vans parked for more than 30 minutes
-  const IDLE_TIMEOUT = 30 * 60 * 1000; // 30 min in ms
-  const now = Date.now();
-  const positions = Object.values(latestPositions).filter(pos => {
-    const lastMoved = lastMovedAt[pos.imei];
-    if (!lastMoved) return true; // no data yet, show it
-    return (now - lastMoved.getTime()) < IDLE_TIMEOUT;
-  });
+  // Show all vehicles — let frontend decide standby display
+  const positions = Object.values(latestPositions);
   if (positions.length === 0) {
     return res.json({
       mode: "waiting",

@@ -55,7 +55,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 /* Status */
 .status-section{padding:14px 20px;border-bottom:1px solid var(--card-border);text-align:center}
 .status-label{font-size:7px;font-weight:700;color:var(--text-muted);letter-spacing:2px;margin-bottom:6px}
-.status-text{font-size:11px;font-weight:800;letter-spacing:.2px}
+.status-text{font-size:10px;font-weight:700;letter-spacing:.2px;line-height:1.6}
 .status-running .status-text{color:var(--green)}
 .status-parked .status-text{color:var(--gold)}
 
@@ -186,12 +186,64 @@ var lblLayer=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}
 setTimeout(function(){satLayer.addTo(mp);lblLayer.addTo(mp)},100);
 L.marker(O,{icon:L.divIcon({className:"marker-label office-label",html:"<img src='https://www.pricelesscarrental.com/smsite/npauto_7/media/imgs/4056_priceless-logo-200x60.png' style='height:16px;vertical-align:middle;margin-right:3px;filter:brightness(1.5)'><img src='https://www.nextcarrental.com/smsite/npauto_8/media/imgs/36557_nextcar-logo.png' style='height:16px;vertical-align:middle;filter:brightness(1.5)'>",iconSize:[130,26],iconAnchor:[65,13]})}).addTo(mp);
 L.marker(X,{icon:L.divIcon({className:"marker-label lax-label",html:"\u2708\uFE0F PICKUP \u00B7 DROP OFF",iconSize:[130,24],iconAnchor:[65,12]})}).addTo(mp);
-var vanIcon=L.divIcon({className:"shuttle-marker",html:"<div class='van-marker'><div class='van-ping'></div><div class='van-body'>\uD83D\uDE90</div><div class='van-arrow'></div></div>",iconSize:[44,50],iconAnchor:[22,25]});
-var sMkr=null,trail=[],tLine=[];
+var COLORS=["#3B82F6","#10B981","#F59E0B"];var NAMES=["Shuttle 1","Shuttle 2","Shuttle 3"];
+function mkVanIcon(color){return L.divIcon({className:"shuttle-marker",html:"<div class='van-marker'><div class='van-ping' style='border-color:"+color+"'></div><div class='van-body'>\uD83D\uDE90</div><div class='van-arrow'></div></div>",iconSize:[44,50],iconAnchor:[22,25]})}
+var sMkrs={},trails={},tLines={};
 function uc(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:!0})}setInterval(uc,1e3);uc();
 var D={"to-office":{t:"Arriving",c:"status-running",f:"PICKUP",o:"PRICELESS"},"to-lax":{t:"En Route to Pickup",c:"status-running",f:"PRICELESS",o:"PICKUP"},"at-office":{t:"Boarding at Office",c:"status-parked",f:"PRICELESS",o:"PICKUP"},"at-lax":{t:"At Airport (Loading)",c:"status-parked",f:"PICKUP",o:"PRICELESS"}};
-var PT=12e5,lastDir=null;
-async function poll(){try{var r=await fetch("/api/shuttles"),d=await r.json();if(d.mode==="waiting"||!d.shuttles.length){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}var s=d.shuttles[0],age=s.timestamp?Date.now()-new Date(s.timestamp).getTime():0,parkedLong=s.speed===0&&age>=PT,pos=[s.lat,s.lng];if(!sMkr)sMkr=L.marker(pos,{icon:vanIcon}).addTo(mp);else sMkr.setLatLng(pos);if(parkedLong){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}document.getElementById("waiting").classList.add("hidden");document.getElementById("parked-panel").classList.remove("active");document.getElementById("active-content").classList.remove("hidden");var di=D[s.direction]||D["to-office"];var isParked=s.direction==="at-office"||s.direction==="at-lax";document.getElementById("status-dir").className="status-direction "+di.c;var etaTxt=(!isParked&&s.prediction)?" in "+s.prediction.eta+" min":"";document.getElementById("status-text").textContent="Shuttle 1 \u2192 "+di.t+etaTxt;var es=document.getElementById("eta-section");if(isParked){es.classList.add("eta-parked");document.getElementById("eta-num").textContent=s.direction==="at-lax"?"HERE":"READY";document.getElementById("eta-unit").textContent=s.direction==="at-lax"?"AT AIRPORT":"DEPARTING SOON"}else{es.classList.remove("eta-parked");document.getElementById("eta-num").textContent=s.prediction.eta;document.getElementById("eta-unit").textContent="MINUTES"}document.getElementById("hp-from").textContent=di.f;document.getElementById("hp-to").textContent=di.o;document.getElementById("hp-pct").textContent=s.progress+"%";document.getElementById("hp-fill").style.width=s.progress+"%";var tk=document.getElementById("hp-track");tk.className="hp-track";if(isParked)tk.classList.add("hp-gold");else if(s.progress>75)tk.classList.add("hp-green");else if(s.progress>30)tk.classList.add("hp-blue");else tk.classList.add("hp-red");trail.push(pos);if(trail.length>200)trail=trail.slice(-200);if(s.direction!==lastDir)trail=[pos];lastDir=s.direction;if(tLine)tLine.forEach(function(l){mp.removeLayer(l)});tLine=[];if(trail.length>1){tLine.push(L.polyline(trail,{color:"#3B82F6",weight:12,opacity:.1,lineCap:"round",lineJoin:"round"}).addTo(mp));tLine.push(L.polyline(trail,{color:"#60A5FA",weight:4,opacity:.6,lineCap:"round",lineJoin:"round"}).addTo(mp))}mp.setView(C,17,{animate:!0,duration:1})}catch(e){console.error("Poll:",e)}}
+var PT=12e5,lastDirs={};
+async function poll(){try{var r=await fetch("/api/shuttles"),d=await r.json();
+if(d.mode==="waiting"||!d.shuttles.length){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}
+document.getElementById("waiting").classList.add("hidden");
+// Check if ALL shuttles are parked
+var allParked=d.shuttles.every(function(s){return s.speed===0&&(s.direction==="at-office"||s.direction==="at-lax")});
+if(allParked){document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active")}
+else{document.getElementById("parked-panel").classList.remove("active");document.getElementById("active-content").classList.remove("hidden")}
+// Build status HTML for panel
+var statusHtml="",bestEta=null,bestShuttle=null;
+d.shuttles.forEach(function(s,i){
+var clr=COLORS[i%3],name=NAMES[i]||("Shuttle "+(i+1)),pos=[s.lat,s.lng];
+// Map markers
+if(!sMkrs[s.imei])sMkrs[s.imei]=L.marker(pos,{icon:mkVanIcon(clr)}).addTo(mp);
+else sMkrs[s.imei].setLatLng(pos);
+// Trails per shuttle
+if(!trails[s.imei])trails[s.imei]=[];
+if(s.direction!==lastDirs[s.imei]){trails[s.imei]=[pos]}else{trails[s.imei].push(pos)}
+if(trails[s.imei].length>200)trails[s.imei]=trails[s.imei].slice(-200);
+lastDirs[s.imei]=s.direction;
+if(tLines[s.imei])tLines[s.imei].forEach(function(l){mp.removeLayer(l)});
+tLines[s.imei]=[];
+if(trails[s.imei].length>1){
+tLines[s.imei].push(L.polyline(trails[s.imei],{color:clr,weight:10,opacity:.1,lineCap:"round",lineJoin:"round"}).addTo(mp));
+tLines[s.imei].push(L.polyline(trails[s.imei],{color:clr,weight:3,opacity:.5,lineCap:"round",lineJoin:"round"}).addTo(mp));
+}
+// Find best ETA (closest arriving shuttle)
+var isMoving=s.direction==="to-office"||s.direction==="to-lax";
+if(isMoving&&s.prediction&&(!bestEta||s.prediction.eta<bestEta)){bestEta=s.prediction.eta;bestShuttle={s:s,i:i,name:name}}
+});
+// Update panel with best shuttle info or first shuttle
+var focus=bestShuttle?bestShuttle:{s:d.shuttles[0],i:0,name:NAMES[0]};
+var s=focus.s,di=D[s.direction]||D["to-office"];
+var isParked=s.direction==="at-office"||s.direction==="at-lax";
+document.getElementById("status-dir").className="status-direction "+di.c;
+// Build multi-shuttle status
+var lines=[];
+d.shuttles.forEach(function(sh,i){var nm=NAMES[i]||("Shuttle "+(i+1));var dd=D[sh.direction]||D["to-office"];var isP=sh.direction==="at-office"||sh.direction==="at-lax";var etaTxt=(!isP&&sh.prediction)?" in "+sh.prediction.eta+" min":"";lines.push(nm+" \u2192 "+dd.t+etaTxt)});
+document.getElementById("status-text").innerHTML=lines.join("<br>");
+var es=document.getElementById("eta-section");
+if(!bestShuttle){es.classList.add("eta-parked");document.getElementById("eta-num").textContent="READY";document.getElementById("eta-unit").textContent="ALL SHUTTLES STANDING BY"}
+else{es.classList.remove("eta-parked");document.getElementById("eta-num").textContent=bestShuttle.s.prediction.eta;document.getElementById("eta-unit").textContent="MINUTES"}
+document.getElementById("hp-from").textContent=di.f;document.getElementById("hp-to").textContent=di.o;
+document.getElementById("hp-pct").textContent=s.progress+"%";document.getElementById("hp-fill").style.width=s.progress+"%";
+var tk=document.getElementById("hp-track");tk.className="hp-track";
+if(isParked)tk.classList.add("hp-gold");else if(s.progress>75)tk.classList.add("hp-green");else if(s.progress>30)tk.classList.add("hp-blue");else tk.classList.add("hp-red");
+// Update ticker with shuttle count
+var topScroll=document.getElementById("ticker-top-scroll");
+var countMsg=d.shuttles.length+" shuttle"+(d.shuttles.length>1?"s":"")+" active";
+var items=topScroll.querySelectorAll(".ticker-item");
+if(items.length>0)items[0].innerHTML="<div class='ticker-dot'></div>"+countMsg;
+if(items.length>4)items[4].innerHTML="<div class='ticker-dot'></div>"+countMsg;
+mp.setView(C,17,{animate:!0,duration:1})}catch(e){console.error("Poll:",e)}}
 var slides=[{i:"\uD83E\uDEB1",m:"Please wait in the lobby",s:"designated pickup area"},{i:"\u23F0",m:"Avg Wait: 8\u201312 min",s:"varies during busy hours"},{i:"\uD83D\uDE90",m:"Shuttle runs continuously",s:"airport \u2194 office"},{i:"\u2764\uFE0F",m:"Fast, safe & reliable",s:"our team will assist you"}],ci=0;
 function nextSlide(){var el=document.getElementById("carousel-slide");el.innerHTML="<div class='carousel-icon'>"+slides[ci].i+"</div><div class='carousel-main'>"+slides[ci].m+"</div><div class='carousel-sub'>"+slides[ci].s+"</div>";el.style.animation="none";el.offsetHeight;el.style.animation="fadeSlide .6s ease";ci=(ci+1)%slides.length}
 nextSlide();setInterval(nextSlide,8e3);
