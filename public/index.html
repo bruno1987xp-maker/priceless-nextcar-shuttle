@@ -198,6 +198,22 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .marker-label.office-label{border-color:rgba(59,130,246,0.3);color:#93C5FD}
 .marker-label.lax-label{border-color:rgba(16,185,129,0.3);color:#6EE7B7}
 /* ═══ MOBILE RESPONSIVE ═══ */
+/* Forced mobile mode via button */
+body.force-mobile .layout{flex-direction:column;height:auto;min-height:100vh}
+body.force-mobile .map-side{width:100vw;height:45vh;min-height:200px}
+body.force-mobile .info-panel{width:100vw;min-width:100vw;height:auto;min-height:55vh;overflow-y:auto}
+body.force-mobile .ticker-item{font-size:13px;padding:0 20px}
+body.force-mobile .ticker-tag{font-size:11px;padding:0 10px}
+body.force-mobile .panel-header{padding:10px 16px 8px}
+body.force-mobile .panel-title{font-size:14px}
+body.force-mobile .panel-clock{font-size:18px}
+body.force-mobile .status-text{font-size:12px}
+body.force-mobile .weather-temp{font-size:22px}
+body.force-mobile .admin-menu{flex-wrap:wrap;max-width:90vw}
+/* Forced TV mode */
+body.force-tv .layout{flex-direction:row!important;height:100vh!important}
+body.force-tv .map-side{width:calc(100vw - 22vw)!important;height:100vh!important}
+body.force-tv .info-panel{width:22vw!important;min-width:22vw!important;height:100vh!important;overflow:hidden!important}
 @media(max-width:768px){
 :root{--panel-width:100vw;--ticker-h:32px}
 .layout{flex-direction:column;height:auto;min-height:100vh}
@@ -250,6 +266,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
     <button class="admin-btn" onclick="adminZoom(-1)"><span class="admin-btn-icon">🔍−</span>ZOOM OUT</button>
     <button class="admin-btn" onclick="adminZoom(0)"><span class="admin-btn-icon">↺</span>RESET</button>
     <button class="admin-btn" onclick="toggleFullscreen(this)"><span class="admin-btn-icon" id="fs-icon">⛶</span><span id="fs-label">FULL</span></button>
+    <button class="admin-btn" onclick="toggleLayout(this)"><span class="admin-btn-icon" id="layout-icon">📱</span><span id="layout-label">MOBILE</span></button>
     <button class="admin-btn" onclick="adminGpsFix(this)"><span class="admin-btn-icon">📡</span>GPS FIX</button>
     <button class="admin-btn" onclick="toggleWakeLock(this)"><span class="admin-btn-icon">☀</span><span id="wake-label">AWAKE</span></button>
     <button class="admin-btn" onclick="openSettings()"><span class="admin-btn-icon">⚙</span>SETTINGS</button>
@@ -312,6 +329,32 @@ function applyZoom(){document.querySelector(".layout-wrapper").style.transform="
 if(_zoom!==1)applyZoom();
 function adminZoom(dir){if(dir===0){_zoom=1}else{_zoom=Math.round((_zoom+dir*0.05)*100)/100;_zoom=Math.max(0.5,Math.min(1.5,_zoom))}applyZoom();mp.invalidateSize()}
 function adminGpsFix(btn){btn.querySelector(".admin-btn-icon").textContent="⏳";btn.style.pointerEvents="none";fetch("/api/fix-gps").then(function(r){return r.json()}).then(function(d){btn.querySelector(".admin-btn-icon").textContent=d.connected?"✅":"❌";setTimeout(function(){btn.querySelector(".admin-btn-icon").textContent="📡";btn.style.pointerEvents="auto"},3000)}).catch(function(){btn.querySelector(".admin-btn-icon").textContent="❌";setTimeout(function(){btn.querySelector(".admin-btn-icon").textContent="📡";btn.style.pointerEvents="auto"},3000)})}
+// Layout toggle: auto → mobile → TV → auto
+var _layoutMode=localStorage.getItem("layoutMode")||"auto";
+function applyLayout(){
+document.body.classList.remove("force-mobile","force-tv");
+if(_layoutMode==="mobile")document.body.classList.add("force-mobile");
+else if(_layoutMode==="tv")document.body.classList.add("force-tv");
+var icon=document.getElementById("layout-icon");
+var label=document.getElementById("layout-label");
+if(_layoutMode==="mobile"){icon.textContent="📱";label.textContent="MOBILE"}
+else if(_layoutMode==="tv"){icon.textContent="🖥";label.textContent="TV"}
+else{icon.textContent="🔄";label.textContent="AUTO"}
+setTimeout(function(){mp.invalidateSize()},300);
+}
+function toggleLayout(btn){
+if(_layoutMode==="auto")_layoutMode="mobile";
+else if(_layoutMode==="mobile")_layoutMode="tv";
+else _layoutMode="auto";
+localStorage.setItem("layoutMode",_layoutMode);
+applyLayout();
+// Update viewport meta
+var vp=document.querySelector('meta[name=viewport]');
+if(_layoutMode==="tv")vp.content="width=1400, initial-scale=0.28, minimum-scale=0.1, maximum-scale=10, user-scalable=yes, shrink-to-fit=no";
+else if(_layoutMode==="mobile")vp.content="width=device-width, initial-scale=1, minimum-scale=0.1, maximum-scale=10, user-scalable=yes";
+else location.reload(); // auto needs fresh detection
+}
+applyLayout();
 function toggleFullscreen(btn){
 var isFS=!!(document.fullscreenElement||document.webkitFullscreenElement);
 if(isFS){if(document.exitFullscreen)document.exitFullscreen();else if(document.webkitExitFullscreen)document.webkitExitFullscreen()}
