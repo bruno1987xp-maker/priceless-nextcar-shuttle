@@ -191,6 +191,31 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .marker-label{background:rgba(10,14,26,0.9);border:1px solid rgba(59,130,246,0.3);border-radius:6px;padding:3px 10px;font-family:'Inter',sans-serif;font-weight:700;font-size:10px;white-space:nowrap;box-shadow:0 4px 12px rgba(0,0,0,0.5)}
 .marker-label.office-label{border-color:rgba(59,130,246,0.3);color:#93C5FD}
 .marker-label.lax-label{border-color:rgba(16,185,129,0.3);color:#6EE7B7}
+/* ═══ MOBILE RESPONSIVE ═══ */
+@media(max-width:768px){
+:root{--panel-width:100vw;--ticker-h:32px}
+.layout{flex-direction:column;height:auto;min-height:100vh}
+.map-side{width:100vw;height:45vh;min-height:200px}
+.info-panel{width:100vw;min-width:100vw;height:auto;min-height:55vh;overflow-y:auto}
+.ticker-item{font-size:13px;padding:0 20px}
+.ticker-tag{font-size:11px;padding:0 10px}
+.panel-header{padding:10px 16px 8px}
+.panel-title{font-size:14px}
+.panel-clock{font-size:18px}
+.status-text{font-size:12px}
+.hp-labels{font-size:9px}
+.weather-temp{font-size:22px}
+.weather-icon{font-size:24px}
+.forecast-row{font-size:9px}
+.admin-menu{flex-wrap:wrap;max-width:90vw}
+.admin-btn{min-width:50px;padding:8px 10px}
+.settings-box{width:90vw;max-height:85vh}
+}
+@media(max-width:480px){
+.map-side{height:35vh}
+.info-panel{min-height:65vh}
+.panel-address{display:none}
+}
 </style>
 </head>
 <body>
@@ -218,8 +243,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
     <button class="admin-btn" onclick="adminZoom(1)"><span class="admin-btn-icon">🔍+</span>ZOOM IN</button>
     <button class="admin-btn" onclick="adminZoom(-1)"><span class="admin-btn-icon">🔍−</span>ZOOM OUT</button>
     <button class="admin-btn" onclick="adminZoom(0)"><span class="admin-btn-icon">↺</span>RESET</button>
-    <button class="admin-btn" onclick="adminFullscreen()"><span class="admin-btn-icon">⛶</span>FULL</button>
-    <button class="admin-btn" onclick="adminExitFull()"><span class="admin-btn-icon">▫</span>EXIT FS</button>
+    <button class="admin-btn" onclick="toggleFullscreen(this)"><span class="admin-btn-icon" id="fs-icon">⛶</span><span id="fs-label">FULL</span></button>
     <button class="admin-btn" onclick="adminGpsFix(this)"><span class="admin-btn-icon">📡</span>GPS FIX</button>
     <button class="admin-btn" onclick="toggleWakeLock(this)"><span class="admin-btn-icon">☀</span><span id="wake-label">AWAKE</span></button>
     <button class="admin-btn" onclick="openSettings()"><span class="admin-btn-icon">⚙</span>SETTINGS</button>
@@ -282,8 +306,13 @@ function applyZoom(){document.querySelector(".layout-wrapper").style.transform="
 if(_zoom!==1)applyZoom();
 function adminZoom(dir){if(dir===0){_zoom=1}else{_zoom=Math.round((_zoom+dir*0.05)*100)/100;_zoom=Math.max(0.5,Math.min(1.5,_zoom))}applyZoom();mp.invalidateSize()}
 function adminGpsFix(btn){btn.querySelector(".admin-btn-icon").textContent="⏳";btn.style.pointerEvents="none";fetch("/api/fix-gps").then(function(r){return r.json()}).then(function(d){btn.querySelector(".admin-btn-icon").textContent=d.connected?"✅":"❌";setTimeout(function(){btn.querySelector(".admin-btn-icon").textContent="📡";btn.style.pointerEvents="auto"},3000)}).catch(function(){btn.querySelector(".admin-btn-icon").textContent="❌";setTimeout(function(){btn.querySelector(".admin-btn-icon").textContent="📡";btn.style.pointerEvents="auto"},3000)})}
-function adminFullscreen(){if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen();else if(document.documentElement.webkitRequestFullscreen)document.documentElement.webkitRequestFullscreen()}
-function adminExitFull(){if(document.exitFullscreen)document.exitFullscreen();else if(document.webkitExitFullscreen)document.webkitExitFullscreen()}
+function toggleFullscreen(btn){
+var isFS=!!(document.fullscreenElement||document.webkitFullscreenElement);
+if(isFS){if(document.exitFullscreen)document.exitFullscreen();else if(document.webkitExitFullscreen)document.webkitExitFullscreen()}
+else{if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen();else if(document.documentElement.webkitRequestFullscreen)document.documentElement.webkitRequestFullscreen()}
+}
+document.addEventListener("fullscreenchange",updateFsBtn);document.addEventListener("webkitfullscreenchange",updateFsBtn);
+function updateFsBtn(){var isFS=!!(document.fullscreenElement||document.webkitFullscreenElement);document.getElementById("fs-icon").textContent=isFS?"▫":"⛶";document.getElementById("fs-label").textContent=isFS?"EXIT FS":"FULL"}
 // Click-to-scale: cycle 1x → 1.15x → 1.3x → 1.5x → 1x, saved per element
 var SCALES=[1,1.15,1.3,1.5];
 var _elScales=JSON.parse(localStorage.getItem("elScales")||"{}");
@@ -402,37 +431,39 @@ var mem=window._barMem[sh.imei];
 if(sh.direction!==mem.dir){mem.pct=0;mem.dir=sh.direction}
 mem.pct=Math.max(mem.pct,sh.progress||0);
 });
-// Count active moving shuttles per direction
+// Count moving shuttles per direction
 var toOfficeSh=[],toElotSh=[];
 d.shuttles.forEach(function(sh){
 var pct=window._barMem[sh.imei]?window._barMem[sh.imei].pct:(sh.progress||0);
 if(sh.direction==="to-office")toOfficeSh.push(pct);
 if(sh.direction==="to-lax")toElotSh.push(pct);
 });
-var bar1Pct=0,bar2Pct=0;
 var multiRoute=toOfficeSh.length>0&&toElotSh.length>0;
-if(multiRoute){
-// Multiple shuttles on different routes — each bar independent
-bar1Pct=Math.max.apply(null,toOfficeSh);
-bar2Pct=Math.max.apply(null,toElotSh);
-}else if(toOfficeSh.length>0){
-// Only going to office — bar1 fills, bar2 is inverse
-bar1Pct=Math.max.apply(null,toOfficeSh);
-bar2Pct=100-bar1Pct;
-}else if(toElotSh.length>0){
-// Only going to E-Lot — bar2 fills, bar1 is inverse
-bar2Pct=Math.max.apply(null,toElotSh);
-bar1Pct=100-bar2Pct;
-}
-// Forward-only per bar (smooth, no jumping back)
+var bar1El=document.getElementById("hp-to-office");
+var bar2El=document.getElementById("hp-to-elot");
 if(!window._bar1)window._bar1=0;
 if(!window._bar2)window._bar2=0;
-// Reset bar when shuttle direction changes (new trip)
 if(!window._barRoute)window._barRoute="";
-var curRoute=multiRoute?"multi":(toOfficeSh.length>0?"to-office":"to-lax");
+var curRoute=multiRoute?"multi":(toOfficeSh.length>0?"to-office":(toElotSh.length>0?"to-lax":"none"));
 if(curRoute!==window._barRoute){window._bar1=0;window._bar2=0;window._barRoute=curRoute}
-window._bar1=Math.max(window._bar1,bar1Pct);
-window._bar2=Math.max(window._bar2,bar2Pct);
+if(multiRoute){
+// 2+ shuttles on different routes — show both bars
+bar1El.style.display="";bar2El.style.display="";
+window._bar1=Math.max(window._bar1,Math.max.apply(null,toOfficeSh));
+window._bar2=Math.max(window._bar2,Math.max.apply(null,toElotSh));
+}else{
+// 1 shuttle — show only the relevant bar
+if(toOfficeSh.length>0){
+bar1El.style.display="";bar2El.style.display="none";
+window._bar1=Math.max(window._bar1,Math.max.apply(null,toOfficeSh));
+}else if(toElotSh.length>0){
+bar1El.style.display="none";bar2El.style.display="";
+window._bar2=Math.max(window._bar2,Math.max.apply(null,toElotSh));
+}else{
+bar1El.style.display="";bar2El.style.display="none";
+window._bar1=0;
+}
+}
 // Render bar 1: E-LOT → OFFICE
 var offTk=document.getElementById("hp-track-office");offTk.className="hp-track";
 document.getElementById("hp-fill-office").style.width=window._bar1+"%";
