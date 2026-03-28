@@ -116,6 +116,15 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .forecast-bar-wrap{flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;position:relative}
 .forecast-bar{position:absolute;top:0;height:100%;border-radius:2px;background:linear-gradient(90deg,#3B82F6,#F59E0B)}
 
+/* Admin Menu */
+.admin-menu{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:rgba(10,14,26,0.92);border:1px solid rgba(59,130,246,0.3);border-radius:12px;padding:12px;backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,0.6)}
+.admin-menu.visible{display:flex;gap:8px;animation:menuIn .2s ease}
+@keyframes menuIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.9)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.admin-btn{display:flex;flex-direction:column;align-items:center;gap:4px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;cursor:pointer;color:#fff;font-family:'Inter',sans-serif;font-size:8px;font-weight:600;letter-spacing:0.5px;min-width:60px;transition:background .15s}
+.admin-btn:hover{background:rgba(59,130,246,0.2);border-color:rgba(59,130,246,0.4)}
+.admin-btn:active{background:rgba(59,130,246,0.4)}
+.admin-btn-icon{font-size:20px}
+
 /* Footer */
 .panel-footer{padding:4px 20px;border-top:1px solid var(--card-border);text-align:center}
 .footer-support{font-size:9px;color:var(--text-muted)}
@@ -173,6 +182,14 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
   </div>
   <!-- MAP -->
   <div id="map"></div>
+  <div class="admin-menu" id="admin-menu">
+    <button class="admin-btn" onclick="location.reload()"><span class="admin-btn-icon">🔄</span>REFRESH</button>
+    <button class="admin-btn" onclick="mp.zoomIn()"><span class="admin-btn-icon">🔍+</span>ZOOM IN</button>
+    <button class="admin-btn" onclick="mp.zoomOut()"><span class="admin-btn-icon">🔍−</span>ZOOM OUT</button>
+    <button class="admin-btn" onclick="mp.setView(C,17)"><span class="admin-btn-icon">📍</span>CENTER</button>
+    <button class="admin-btn" onclick="document.documentElement.requestFullscreen?document.documentElement.requestFullscreen():0"><span class="admin-btn-icon">⛶</span>FULL</button>
+    <button class="admin-btn" onclick="window.open('/reauth','_blank')"><span class="admin-btn-icon">📡</span>GPS FIX</button>
+  </div>
   <!-- BOTTOM TICKER -->
   <div class="ticker ticker-bottom">
     <div class="ticker-tag">INFO</div>
@@ -225,6 +242,19 @@ var lblLayer=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}
 setTimeout(function(){satLayer.addTo(mp);lblLayer.addTo(mp)},100);
 L.marker(O,{icon:L.divIcon({className:"marker-label office-label",html:"<img src='https://www.pricelesscarrental.com/smsite/npauto_7/media/imgs/4056_priceless-logo-200x60.png' style='height:16px;vertical-align:middle;margin-right:3px;filter:brightness(1.5)'><img src='https://www.nextcarrental.com/smsite/npauto_8/media/imgs/36557_nextcar-logo.png' style='height:16px;vertical-align:middle;filter:brightness(1.5)'>",iconSize:[130,26],iconAnchor:[65,13]})}).addTo(mp);
 L.marker(X,{icon:L.divIcon({className:"marker-label lax-label",html:"\u2708\uFE0F E-LOT",iconSize:[80,24],iconAnchor:[40,12]})}).addTo(mp);
+// Admin menu — click map to show, auto-hide after 5s
+var adminTimer=null;
+mp.on("click",function(){
+var menu=document.getElementById("admin-menu");
+if(menu.classList.contains("visible")){menu.classList.remove("visible");clearTimeout(adminTimer);return}
+menu.classList.add("visible");
+clearTimeout(adminTimer);
+adminTimer=setTimeout(function(){menu.classList.remove("visible")},5000);
+});
+document.getElementById("admin-menu").addEventListener("click",function(e){
+e.stopPropagation();clearTimeout(adminTimer);
+adminTimer=setTimeout(function(){document.getElementById("admin-menu").classList.remove("visible")},5000);
+});
 var COLORS=["#3B82F6","#10B981","#F59E0B"];var NAMES=["Shuttle 1","Shuttle 2","Shuttle 3"];
 function mkVanIcon(color){return L.divIcon({className:"shuttle-marker",html:"<div class='van-marker'><div class='van-ping' style='border-color:"+color+"'></div><div class='van-body'>\uD83D\uDE90</div><div class='van-arrow'></div></div>",iconSize:[44,50],iconAnchor:[22,25]})}
 var sMkrs={},trails={},tLines={};
