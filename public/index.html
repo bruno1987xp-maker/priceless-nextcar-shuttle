@@ -189,7 +189,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
     <button class="admin-btn" onclick="adminZoom(0)"><span class="admin-btn-icon">↺</span>RESET</button>
     <button class="admin-btn" onclick="adminFullscreen()"><span class="admin-btn-icon">⛶</span>FULL</button>
     <button class="admin-btn" onclick="adminExitFull()"><span class="admin-btn-icon">▫</span>EXIT FS</button>
-    <button class="admin-btn" onclick="window.open('/reauth','_blank')"><span class="admin-btn-icon">📡</span>GPS FIX</button>
+    <button class="admin-btn" onclick="adminGpsFix(this)"><span class="admin-btn-icon">📡</span>GPS FIX</button>
   </div>
   <!-- BOTTOM TICKER -->
   <div class="ticker ticker-bottom">
@@ -248,6 +248,7 @@ var _zoom=parseFloat(localStorage.getItem("pageZoom"))||1;
 function applyZoom(){document.querySelector(".layout-wrapper").style.transform="scale("+_zoom+")";document.querySelector(".layout-wrapper").style.transformOrigin="top left";document.querySelector(".layout-wrapper").style.width=(100/_zoom)+"vw";document.querySelector(".layout-wrapper").style.height=(100/_zoom)+"vh";localStorage.setItem("pageZoom",_zoom)}
 if(_zoom!==1)applyZoom();
 function adminZoom(dir){if(dir===0){_zoom=1}else{_zoom=Math.round((_zoom+dir*0.05)*100)/100;_zoom=Math.max(0.5,Math.min(1.5,_zoom))}applyZoom();mp.invalidateSize()}
+function adminGpsFix(btn){btn.querySelector(".admin-btn-icon").textContent="⏳";btn.style.pointerEvents="none";fetch("/api/fix-gps").then(function(r){return r.json()}).then(function(d){btn.querySelector(".admin-btn-icon").textContent=d.connected?"✅":"❌";setTimeout(function(){btn.querySelector(".admin-btn-icon").textContent="📡";btn.style.pointerEvents="auto"},3000)}).catch(function(){btn.querySelector(".admin-btn-icon").textContent="❌";setTimeout(function(){btn.querySelector(".admin-btn-icon").textContent="📡";btn.style.pointerEvents="auto"},3000)})}
 function adminFullscreen(){if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen();else if(document.documentElement.webkitRequestFullscreen)document.documentElement.webkitRequestFullscreen()}
 function adminExitFull(){if(document.exitFullscreen)document.exitFullscreen();else if(document.webkitExitFullscreen)document.webkitExitFullscreen()}
 // Admin menu — click map to show, auto-hide after 5s

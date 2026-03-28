@@ -878,6 +878,20 @@ app.get("/callback", async (req, res) => {
   } catch(e) { res.send("<h1>Error</h1><pre>" + e.message + "</pre>"); }
 });
 
+// Force GPS reconnect — clears token, retries all auth sources
+app.get("/api/fix-gps", async (req, res) => {
+  console.log("[Fix] Manual GPS fix triggered");
+  accessToken = null; tokenExpiry = 0;
+  const token = await getAccessToken();
+  if (token) {
+    await fetchVehicles();
+    await pollLocations();
+    res.json({ connected: true, vehicleCount: vehicles.length, message: "GPS reconnected" });
+  } else {
+    res.json({ connected: false, message: lastAuthError || "Could not reconnect" });
+  }
+});
+
 app.get("/api/debug", async (req, res) => {
   const allVehicles = await bouncieGet("/vehicles");
   res.json({ allVehicles, positions: latestPositions });
