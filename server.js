@@ -26,7 +26,7 @@ const POLL_INTERVAL = Math.max(10, parseInt(process.env.POLL_INTERVAL) || 10) * 
 
 // ─── Fixed Locations ───
 const OFFICE = { lat: 33.9479, lng: -118.3840 }; // 5835 W 98th St (Priceless/NextCar office)
-const LAX    = { lat: 33.9497, lng: -118.3918 }; // 6129 W 96th St - LAX Economy Parking (pickup/dropoff)
+const LAX    = { lat: 33.9496, lng: -118.3896 }; // 9501 Goebel Pl - E-Lot (pickup/dropoff)
 
 // ─── State ───
 let accessToken = null;
@@ -703,7 +703,9 @@ app.get("/api/shuttles", (req, res) => {
       lastUpdate: new Date().toISOString(),
     });
   }
-  const shuttles = positions.map((pos, i) => buildShuttleData(pos, i));
+  const allShuttles = positions.map((pos, i) => buildShuttleData(pos, i));
+  // Only show shuttles with engine running
+  const shuttles = allShuttles.filter(s => s.isRunning);
 
   // Trip averages for display
   const toOfficeRecent = getRecentAvg.get("to-office");

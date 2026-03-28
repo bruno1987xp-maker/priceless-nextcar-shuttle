@@ -204,7 +204,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
   <div class="active-content" id="active-content">
     <div class="status-section"><div class="status-label">SHUTTLE STATUS</div><div class="status-direction status-running" id="status-dir"><span class="status-text" id="status-text">CONNECTING...</span></div></div>
     <div class="eta-section" id="eta-section"><div class="eta-number" id="eta-num">--</div><div class="eta-unit" id="eta-unit">MINUTES</div></div>
-    <div class="hp-section"><div class="hp-labels"><span class="hp-endpoint" id="hp-from">PICKUP</span><span class="hp-pct" id="hp-pct">0%</span><span class="hp-endpoint" id="hp-to">OFFICE</span></div><div class="hp-track hp-blue" id="hp-track"><div class="hp-fill" id="hp-fill" style="width:0%"></div></div></div>
+    <div class="hp-section"><div class="hp-labels"><span class="hp-endpoint" id="hp-from">E-LOT</span><span class="hp-pct" id="hp-pct">0%</span><span class="hp-endpoint" id="hp-to">OFFICE</span></div><div class="hp-track hp-blue" id="hp-track"><div class="hp-fill" id="hp-fill" style="width:0%"></div></div></div>
     <div class="info-carousel"><div class="carousel-slide" id="carousel-slide"></div></div>
   </div>
   <div class="parked-panel" id="parked-panel"><div class="parked-logos"><div class="p-badge p-badge-blue parked-badge">PRICELESS</div><div class="parked-amp">&amp;</div><div class="p-badge p-badge-green parked-badge">NEXTCAR</div></div><div class="parked-divider"></div><div class="parked-title">Shuttle on Standby</div><div class="parked-msg">Please check with our front desk for shuttle availability.</div></div>
@@ -224,18 +224,18 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 </div>
 </div>
 <script>
-var O=[33.9479,-118.384],X=[33.9497,-118.3918],C=[(O[0]+X[0])/2,(O[1]+X[1])/2];
+var O=[33.9479,-118.384],X=[33.9496,-118.3896],C=[(O[0]+X[0])/2,(O[1]+X[1])/2];
 var mp=L.map("map",{center:C,zoom:17,zoomControl:!1,attributionControl:!1,dragging:!1,scrollWheelZoom:!1,doubleClickZoom:!1,touchZoom:!1});
 var satLayer=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19});
 var lblLayer=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:19,opacity:.6});
 setTimeout(function(){satLayer.addTo(mp);lblLayer.addTo(mp)},100);
 L.marker(O,{icon:L.divIcon({className:"marker-label office-label",html:"<img src='https://www.pricelesscarrental.com/smsite/npauto_7/media/imgs/4056_priceless-logo-200x60.png' style='height:16px;vertical-align:middle;margin-right:3px;filter:brightness(1.5)'><img src='https://www.nextcarrental.com/smsite/npauto_8/media/imgs/36557_nextcar-logo.png' style='height:16px;vertical-align:middle;filter:brightness(1.5)'>",iconSize:[130,26],iconAnchor:[65,13]})}).addTo(mp);
-L.marker(X,{icon:L.divIcon({className:"marker-label lax-label",html:"\u2708\uFE0F PICKUP \u00B7 DROP OFF",iconSize:[130,24],iconAnchor:[65,12]})}).addTo(mp);
+L.marker(X,{icon:L.divIcon({className:"marker-label lax-label",html:"\u2708\uFE0F E-LOT",iconSize:[80,24],iconAnchor:[40,12]})}).addTo(mp);
 var COLORS=["#3B82F6","#10B981","#F59E0B"];var NAMES=["Shuttle 1","Shuttle 2","Shuttle 3"];
 function mkVanIcon(color){return L.divIcon({className:"shuttle-marker",html:"<div class='van-marker'><div class='van-ping' style='border-color:"+color+"'></div><div class='van-body'>\uD83D\uDE90</div><div class='van-arrow'></div></div>",iconSize:[44,50],iconAnchor:[22,25]})}
 var sMkrs={},trails={},tLines={};
 function uc(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:!0})}setInterval(uc,1e3);uc();
-var D={"to-office":{t:"Arriving",c:"status-running",f:"PICKUP",o:"PRICELESS"},"to-lax":{t:"En Route to Pickup",c:"status-running",f:"PRICELESS",o:"PICKUP"},"at-office":{t:"Boarding at Office",c:"status-parked",f:"PRICELESS",o:"PICKUP"},"at-lax":{t:"At Airport (Loading)",c:"status-parked",f:"PICKUP",o:"PRICELESS"}};
+var D={"to-office":{t:"Arriving",c:"status-running",f:"E-LOT",o:"OFFICE"},"to-lax":{t:"En Route to E-Lot",c:"status-running",f:"OFFICE",o:"E-LOT"},"at-office":{t:"Boarding at Office",c:"status-parked",f:"OFFICE",o:"E-LOT"},"at-lax":{t:"At E-Lot (Loading)",c:"status-parked",f:"E-LOT",o:"OFFICE"}};
 var PT=12e5,lastDirs={};
 async function poll(){try{var r=await fetch("/api/shuttles"),d=await r.json();
 if(d.mode==="waiting"||!d.shuttles.length){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}
