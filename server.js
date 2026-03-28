@@ -750,7 +750,7 @@ app.get("/api/shuttles", (req, res) => {
   }
   const allShuttles = positions.map((pos, i) => buildShuttleData(pos, i));
   // Only show shuttles with engine running AND within 1 mile of the route
-  const MAX_ROUTE_DIST = 1.0; // miles
+  const MAX_ROUTE_DIST = 2.0; // miles
   const shuttles = allShuttles.filter(s => s.isRunning && Math.min(parseFloat(s.distToOffice), parseFloat(s.distToLax)) <= MAX_ROUTE_DIST);
 
   // Trip averages for display
