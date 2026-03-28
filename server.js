@@ -23,6 +23,7 @@ const _envRedirect = process.env.BOUNCIE_REDIRECT_URI;
 const REDIRECT_URI = (_envRedirect && !_envRedirect.includes("localhost")) ? _envRedirect : "https://priceless-nextcar-shuttle.onrender.com/callback";
 const AUTH_CODE = process.env.BOUNCIE_AUTH_CODE;
 const POLL_INTERVAL = Math.max(10, parseInt(process.env.POLL_INTERVAL) || 10) * 1000;
+const AUTH_BLOB_URL = "https://jsonblob.com/api/jsonBlob/019d35d3-bb7a-79b4-8cf9-c0bb97257d50";
 
 // ─── Fixed Locations ───
 const OFFICE = { lat: 33.9479, lng: -118.3840 }; // 5835 W 98th St (Priceless/NextCar office)
@@ -133,6 +134,31 @@ function getStoredAuthCode() {
     if (row && row.val) return row.val;
   } catch(e) {}
   return AUTH_CODE;
+}
+
+// ─── External auth persistence (survives Render restarts) ───
+async function saveAuthExternal(code) {
+  try {
+    await fetch(AUTH_BLOB_URL, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ authCode: code, updatedAt: new Date().toISOString() }),
+    });
+    console.log("[Auth] Saved auth code to external store");
+  } catch(e) { console.error("[Auth] External save failed:", e.message); }
+}
+
+async function loadAuthExternal() {
+  try {
+    const res = await fetch(AUTH_BLOB_URL);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.authCode && data.authCode !== "pending") {
+      console.log("[Auth] Loaded auth code from external store (saved " + data.updatedAt + ")");
+      return data.authCode;
+    }
+  } catch(e) { console.error("[Auth] External load failed:", e.message); }
+  return null;
 }
 
 // Prepared statements for speed
@@ -473,6 +499,7 @@ async function exchangeAuthCode(code, label) {
   accessToken = data.access_token;
   tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
   saveToken(accessToken, tokenExpiry, code);
+  saveAuthExternal(code); // persist externally — survives Render restarts
   consecutiveAuthFailures = 0;
   lastAuthError = null;
   console.log(`[Auth] Token obtained (${label}), expires in ${Math.round((tokenExpiry - Date.now()) / 60000)}min`);
@@ -483,10 +510,14 @@ async function getAccessToken() {
   if (accessToken && Date.now() < tokenExpiry) return accessToken;
   if (loadToken()) return accessToken;
 
+  // Try external store first (survives Render restarts)
+  const externalCode = await loadAuthExternal();
+
   const codeSources = [
+    externalCode ? { code: externalCode, label: "external store" } : null,
     { code: getStoredAuthCode(), label: "SQLite/stored" },
     { code: AUTH_CODE, label: "env var" },
-  ];
+  ].filter(Boolean);
   const seen = new Set();
   const unique = codeSources.filter(s => s.code && !seen.has(s.code) && seen.add(s.code));
 
@@ -826,6 +857,7 @@ app.get("/callback", async (req, res) => {
       accessToken = data.access_token;
       tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
       saveToken(accessToken, tokenExpiry, code);
+      saveAuthExternal(code); // persist externally — survives Render restarts
       consecutiveAuthFailures = 0;
       lastAuthError = null;
       gpsStatus = "live";
