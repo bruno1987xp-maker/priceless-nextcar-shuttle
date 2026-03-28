@@ -19,7 +19,7 @@ const BOUNCIE_API = "https://api.bouncie.dev/v1";
 const BOUNCIE_AUTH = "https://auth.bouncie.com/oauth/token";
 const CLIENT_ID = process.env.BOUNCIE_CLIENT_ID;
 const CLIENT_SECRET = process.env.BOUNCIE_CLIENT_SECRET;
-const REDIRECT_URI = process.env.BOUNCIE_REDIRECT_URI;
+const REDIRECT_URI = process.env.BOUNCIE_REDIRECT_URI || "https://priceless-nextcar-shuttle.onrender.com/callback";
 const AUTH_CODE = process.env.BOUNCIE_AUTH_CODE;
 const POLL_INTERVAL = Math.max(10, parseInt(process.env.POLL_INTERVAL) || 10) * 1000;
 
