@@ -139,12 +139,13 @@ function getStoredAuthCode() {
 // ─── External auth persistence (survives Render restarts) ───
 async function saveAuthExternal(code) {
   try {
-    await fetch(AUTH_BLOB_URL, {
+    const res = await fetch(AUTH_BLOB_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ authCode: code, updatedAt: new Date().toISOString() }),
     });
-    console.log("[Auth] Saved auth code to external store");
+    if (res.ok) console.log("[Auth] Saved auth code to external store");
+    else console.error("[Auth] External save returned " + res.status);
   } catch(e) { console.error("[Auth] External save failed:", e.message); }
 }
 
@@ -297,6 +298,7 @@ function trackTrip(pos, direction, progress) {
   } else if (active) {
     // Same direction — log breadcrumb and speed
     active.speedSamples.push(pos.speed || 0);
+    if (active.speedSamples.length > 500) active.speedSamples = active.speedSamples.slice(-500);
     try {
       insertBreadcrumb.run(
         active.tripId, imei, pos.lat, pos.lng,
@@ -604,6 +606,8 @@ function calcDistance(p1, p2) {
 
 // ─── Poll & Learn ───
 async function pollLocations() {
+  if (_polling) return;
+  _polling = true;
   try {
     const data = await bouncieGet("/vehicles");
     if (!data || !Array.isArray(data)) return;
@@ -651,6 +655,8 @@ async function pollLocations() {
     }
   } catch (e) {
     console.error("[Poll] Error:", e.message);
+  } finally {
+    _polling = false;
   }
 }
 

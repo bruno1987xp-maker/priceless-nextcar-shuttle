@@ -323,8 +323,12 @@ var lblLayer=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}
 setTimeout(function(){satLayer.addTo(mp);lblLayer.addTo(mp)},100);
 L.marker(O,{icon:L.divIcon({className:"marker-label office-label",html:"<img src='https://www.pricelesscarrental.com/smsite/npauto_7/media/imgs/4056_priceless-logo-200x60.png' style='height:16px;vertical-align:middle;margin-right:3px;filter:brightness(1.5)'><img src='https://www.nextcarrental.com/smsite/npauto_8/media/imgs/36557_nextcar-logo.png' style='height:16px;vertical-align:middle;filter:brightness(1.5)'>",iconSize:[130,26],iconAnchor:[65,13]})}).addTo(mp);
 L.marker(X,{icon:L.divIcon({className:"marker-label lax-label",html:"\u2708\uFE0F E-LOT",iconSize:[80,24],iconAnchor:[40,12]})}).addTo(mp);
+// Safe localStorage helper
+function lsGet(k,def){try{var v=localStorage.getItem(k);return v!==null?v:def}catch(e){return def}}
+function lsGetJSON(k,def){try{var v=localStorage.getItem(k);return v?JSON.parse(v):def}catch(e){return def}}
+function lsSet(k,v){try{localStorage.setItem(k,typeof v==="string"?v:JSON.stringify(v))}catch(e){}}
 // Page zoom — scales entire layout, persists in localStorage
-var _zoom=parseFloat(localStorage.getItem("pageZoom"))||1;
+var _zoom=parseFloat(lsGet("pageZoom",1));
 function applyZoom(){document.querySelector(".layout-wrapper").style.transform="scale("+_zoom+")";document.querySelector(".layout-wrapper").style.transformOrigin="top left";document.querySelector(".layout-wrapper").style.width=(100/_zoom)+"vw";document.querySelector(".layout-wrapper").style.height=(100/_zoom)+"vh";localStorage.setItem("pageZoom",_zoom)}
 if(_zoom!==1)applyZoom();
 function adminZoom(dir){if(dir===0){_zoom=1}else{_zoom=Math.round((_zoom+dir*0.05)*100)/100;_zoom=Math.max(0.5,Math.min(1.5,_zoom))}applyZoom();mp.invalidateSize()}
@@ -432,7 +436,7 @@ var sMkrs={},trails={},tLines={};
 function uc(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:!0})}setInterval(uc,1e3);uc();
 var D={"to-office":{t:"Arriving",c:"status-running",f:"E-LOT",o:"OFFICE"},"to-lax":{t:"En Route to E-Lot",c:"status-running",f:"OFFICE",o:"E-LOT"},"at-office":{t:"Boarding at Office",c:"status-parked",f:"OFFICE",o:"E-LOT"},"at-lax":{t:"At E-Lot (Loading)",c:"status-parked",f:"E-LOT",o:"OFFICE"}};
 var PT=12e5,lastDirs={};
-async function poll(){try{var r=await fetch("/api/shuttles"),d=await r.json();
+async function poll(){try{var r=await fetch("/api/shuttles");if(!r.ok)return;var d=await r.json();if(!d||!d.shuttles)return;
 if(d.mode==="waiting"||!d.shuttles.length){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}
 document.getElementById("waiting").classList.add("hidden");
 // Standby only after 10min no movement
@@ -584,6 +588,12 @@ document.getElementById("weather-forecast").innerHTML=html;
 }catch(e){console.error("Weather:",e)}}
 fetchWeather();setInterval(fetchWeather,6e5);
 poll();setInterval(poll,8e3);bs();setInterval(bs,6e4);
+// Auto-reload every 6 hours to prevent memory leaks and ensure fresh state
+setTimeout(function(){location.reload()},6*60*60*1000);
+// Auto-recover from fetch failures: if 3 consecutive poll fails, reload page
+var _pollFails=0;
+var _origPoll=poll;
+poll=async function(){try{await _origPoll();_pollFails=0}catch(e){_pollFails++;if(_pollFails>5)location.reload()}};
 
 // ═══ SETTINGS PANEL ═══
 var _cfg=JSON.parse(localStorage.getItem("dashCfg")||"{}");
