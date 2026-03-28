@@ -125,6 +125,9 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .admin-btn:active{background:rgba(59,130,246,0.4)}
 .admin-btn-icon{font-size:20px}
 
+/* Element scaling on click */
+[data-scale]{cursor:pointer;transition:transform .3s ease,font-size .3s ease}
+
 /* Footer */
 .panel-footer{padding:4px 20px;border-top:1px solid var(--card-border);text-align:center}
 .footer-support{font-size:9px;color:var(--text-muted)}
@@ -167,7 +170,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 <div class="layout-wrapper"><div class="layout">
 <div class="map-side">
   <!-- TOP TICKER -->
-  <div class="ticker ticker-top">
+  <div class="ticker ticker-top" data-scale="ticker-top">
     <div class="ticker-tag">SHUTTLE</div>
     <div class="ticker-scroll" id="ticker-top-scroll">
       <div class="ticker-item"><div class="ticker-dot"></div>Shuttle 1 is actively tracking</div>
@@ -192,7 +195,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
     <button class="admin-btn" onclick="adminGpsFix(this)"><span class="admin-btn-icon">📡</span>GPS FIX</button>
   </div>
   <!-- BOTTOM TICKER -->
-  <div class="ticker ticker-bottom">
+  <div class="ticker ticker-bottom" data-scale="ticker-bottom">
     <div class="ticker-tag">INFO</div>
     <div class="ticker-scroll" id="ticker-bottom-scroll">
       <div class="ticker-item"><div class="ticker-dot"></div>Your shuttle is on the way. Thank you for your patience.</div>
@@ -209,7 +212,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
   </div>
 </div>
 <!-- RIGHT PANEL -->
-<div class="info-panel">
+<div class="info-panel" data-scale="panel">
   <div class="panel-header"><div class="panel-logos"><div class="p-badge p-badge-blue">PRICELESS</div><div class="p-badge p-badge-green">NEXTCAR</div></div><div class="panel-title">Shuttle Tracker</div><div class="panel-address">9750 Airport Blvd, Los Angeles</div></div>
   <div class="panel-live-row"><div class="live-pill"><div class="live-dot"></div><span class="live-text">LIVE</span></div><div class="gps-badge gps-live" id="gps-badge" title="GPS Status"><div class="gps-dot"></div><span id="gps-label">GPS</span></div><div class="panel-clock" id="clock">--:--</div></div>
   <div class="gps-reconnect-bar" id="gps-reconnect"><span style="font-size:8px;color:#FCA5A5;margin-right:8px">GPS SIGNAL LOST</span><button class="gps-reconnect-btn" onclick="window.open('/reauth','_blank')">RECONNECT</button></div>
@@ -251,6 +254,23 @@ function adminZoom(dir){if(dir===0){_zoom=1}else{_zoom=Math.round((_zoom+dir*0.0
 function adminGpsFix(btn){btn.querySelector(".admin-btn-icon").textContent="⏳";btn.style.pointerEvents="none";fetch("/api/fix-gps").then(function(r){return r.json()}).then(function(d){btn.querySelector(".admin-btn-icon").textContent=d.connected?"✅":"❌";setTimeout(function(){btn.querySelector(".admin-btn-icon").textContent="📡";btn.style.pointerEvents="auto"},3000)}).catch(function(){btn.querySelector(".admin-btn-icon").textContent="❌";setTimeout(function(){btn.querySelector(".admin-btn-icon").textContent="📡";btn.style.pointerEvents="auto"},3000)})}
 function adminFullscreen(){if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen();else if(document.documentElement.webkitRequestFullscreen)document.documentElement.webkitRequestFullscreen()}
 function adminExitFull(){if(document.exitFullscreen)document.exitFullscreen();else if(document.webkitExitFullscreen)document.webkitExitFullscreen()}
+// Click-to-scale: cycle 1x → 1.15x → 1.3x → 1.5x → 1x, saved per element
+var SCALES=[1,1.15,1.3,1.5];
+var _elScales=JSON.parse(localStorage.getItem("elScales")||"{}");
+function applyElScale(el){var key=el.dataset.scale;var idx=_elScales[key]||0;var s=SCALES[idx];el.style.transform="scale("+s+")";el.style.transformOrigin="center center"}
+document.querySelectorAll("[data-scale]").forEach(function(el){
+applyElScale(el);
+el.addEventListener("click",function(e){
+// Don't scale if clicking admin menu buttons or inside interactive elements
+if(e.target.closest(".admin-menu,.admin-btn,a,button"))return;
+var key=el.dataset.scale;
+var idx=(_elScales[key]||0)+1;
+if(idx>=SCALES.length)idx=0;
+_elScales[key]=idx;
+localStorage.setItem("elScales",JSON.stringify(_elScales));
+applyElScale(el);
+});
+});
 // Admin menu — click map to show, auto-hide after 5s
 var adminTimer=null;
 mp.on("click",function(){
