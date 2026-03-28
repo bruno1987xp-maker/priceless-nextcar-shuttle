@@ -134,6 +134,14 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .settings-btn:hover{opacity:0.85}
 .settings-btn-row{display:flex;gap:8px;margin-top:8px;justify-content:center}
 .settings-close{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:6px 18px;font-size:9px;font-weight:700;color:#fff;cursor:pointer}
+.msg-row{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:4px;cursor:pointer}
+.msg-row:hover{background:rgba(255,255,255,0.04)}
+.msg-check{width:16px;height:16px;border-radius:3px;border:2px solid rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all .15s}
+.msg-check.checked{background:var(--green);border-color:var(--green)}
+.msg-text{font-size:9px;color:var(--text);line-height:1.3;flex:1}
+.msg-custom{color:var(--blue)}
+.msg-delete{font-size:12px;color:rgba(255,255,255,0.2);cursor:pointer;padding:2px 4px}
+.msg-delete:hover{color:#EF4444}
 .night-mode .layout-wrapper{filter:brightness(0.4)}
 
 /* Admin Menu */
@@ -461,45 +469,116 @@ document.querySelectorAll(".panel-clock").forEach(function(e){e.style.display=_c
 if(_cfg.nightMode)document.body.classList.add("night-mode");else document.body.classList.remove("night-mode");
 }
 applyCfg();
-// Load custom ticker messages on startup
-(function(){var cm=JSON.parse(localStorage.getItem("customMsgs")||"[]");if(cm.length>0){var html="";cm.forEach(function(m){html+="<div class='ticker-item'><div class='ticker-dot'></div>"+m+"</div>"});var full=html+html;var ts=document.getElementById("ticker-top-scroll");var bs2=document.getElementById("ticker-bottom-scroll");if(ts)ts.innerHTML=full;if(bs2)bs2.innerHTML=full}})();
+// Default messages pool (needed before startup loader)
+var DEFAULT_MSGS=[
+"Shuttle 1 is actively tracking",
+"Your shuttle runs continuously between the airport and our office",
+"Average wait time: 8-12 minutes",
+"Please wait in the lobby or designated pickup area",
+"Your shuttle is on the way. Thank you for your patience.",
+"Pickup times may vary during busy hours",
+"We are committed to fast, safe, and reliable service",
+"Our team will assist you shortly",
+"Need help? Please see our front desk team"
+];
+// Load saved ticker messages on startup
+(function(){if(!localStorage.getItem("msgsApplied"))return;var state=JSON.parse(localStorage.getItem("msgState")||"null");if(!state)return;var active=[];DEFAULT_MSGS.forEach(function(m,i){if(state.enabled["d"+i]!==false)active.push(m)});(state.custom||[]).forEach(function(m,i){if(state.enabled["c"+i]!==false)active.push(m)});if(active.length>0){var html="";active.forEach(function(m){html+="<div class='ticker-item'><div class='ticker-dot'></div>"+m+"</div>"});var full=html+html;var ts=document.getElementById("ticker-top-scroll");var bs2=document.getElementById("ticker-bottom-scroll");if(ts)ts.innerHTML=full;if(bs2)bs2.innerHTML=full}})();
 
-function openSettings(){
-document.getElementById("admin-menu").classList.remove("visible");
-var s=document.getElementById("settings-overlay");
-s.classList.add("visible");
-// Sync toggles
-document.querySelectorAll("[data-cfg]").forEach(function(btn){
-btn.classList.toggle("on",!!_cfg[btn.dataset.cfg]);
+function getMsgState(){
+var saved=JSON.parse(localStorage.getItem("msgState")||"null");
+if(!saved){
+// Init: all defaults enabled, no custom
+saved={enabled:{},custom:[]};
+DEFAULT_MSGS.forEach(function(m,i){saved.enabled["d"+i]=true});
+}
+return saved;
+}
+
+function renderMsgList(){
+var state=getMsgState();
+var list=document.getElementById("msg-list");
+var html="";
+// Default messages
+DEFAULT_MSGS.forEach(function(m,i){
+var key="d"+i;
+var on=state.enabled[key]!==false;
+html+="<div class='msg-row' onclick='toggleMsg(\""+key+"\",this)'><div class='msg-check "+(on?"checked":"")+"'>"+(on?"✓":"")+"</div><div class='msg-text'>"+m+"</div></div>";
 });
-// Load custom messages
-var cm=JSON.parse(localStorage.getItem("customMsgs")||"[]");
-document.getElementById("settings-msgs").value=cm.join("\n");
+// Custom messages
+state.custom.forEach(function(m,i){
+var key="c"+i;
+var on=state.enabled[key]!==false;
+html+="<div class='msg-row'><div class='msg-check "+(on?"checked":"")+"' onclick='toggleMsg(\""+key+"\",this.parentNode)'>"+(on?"✓":"")+"</div><div class='msg-text msg-custom' onclick='toggleMsg(\""+key+"\",this.parentNode)'>"+m+"</div><span class='msg-delete' onclick='deleteCustomMsg("+i+")'>✕</span></div>";
+});
+list.innerHTML=html;
 }
-function closeSettings(){document.getElementById("settings-overlay").classList.remove("visible")}
-function toggleCfg(key,btn){_cfg[key]=!_cfg[key];btn.classList.toggle("on");saveCfg()}
 
-function saveCustomMsgs(){
-var txt=document.getElementById("settings-msgs").value.trim();
-var msgs=txt?txt.split("\n").filter(function(m){return m.trim()}):[];
-localStorage.setItem("customMsgs",JSON.stringify(msgs));
-// Update tickers with custom messages
-if(msgs.length>0){
-var topScroll=document.getElementById("ticker-top-scroll");
-var botScroll=document.getElementById("ticker-bottom-scroll");
-var html="";msgs.forEach(function(m){html+="<div class='ticker-item'><div class='ticker-dot'></div>"+m+"</div>"});
-// Duplicate for seamless scroll
-var fullHtml=html+html;
-if(topScroll)topScroll.innerHTML=fullHtml;
-if(botScroll)botScroll.innerHTML=fullHtml;
+function toggleMsg(key,row){
+var state=getMsgState();
+state.enabled[key]=!state.enabled[key];
+localStorage.setItem("msgState",JSON.stringify(state));
+var chk=row.querySelector(".msg-check");
+chk.classList.toggle("checked");
+chk.textContent=chk.classList.contains("checked")?"✓":"";
 }
+
+function addCustomMsg(){
+var input=document.getElementById("new-msg-input");
+var txt=input.value.trim();
+if(!txt)return;
+var state=getMsgState();
+state.custom.push(txt);
+state.enabled["c"+(state.custom.length-1)]=true;
+localStorage.setItem("msgState",JSON.stringify(state));
+input.value="";
+renderMsgList();
+}
+
+function deleteCustomMsg(idx){
+var state=getMsgState();
+state.custom.splice(idx,1);
+// Reindex custom enabled keys
+var newEnabled={};
+Object.keys(state.enabled).forEach(function(k){if(k.charAt(0)==="d")newEnabled[k]=state.enabled[k]});
+state.custom.forEach(function(m,i){var oldKey="c"+(i>=idx?i+1:i);newEnabled["c"+i]=state.enabled[oldKey]!==false});
+state.enabled=newEnabled;
+localStorage.setItem("msgState",JSON.stringify(state));
+renderMsgList();
+}
+
+function saveMsgSettings(){
+var state=getMsgState();
+var active=[];
+DEFAULT_MSGS.forEach(function(m,i){if(state.enabled["d"+i]!==false)active.push(m)});
+state.custom.forEach(function(m,i){if(state.enabled["c"+i]!==false)active.push(m)});
+// Apply to tickers
+if(active.length>0){
+var html="";active.forEach(function(m){html+="<div class='ticker-item'><div class='ticker-dot'></div>"+m+"</div>"});
+var full=html+html;
+var ts=document.getElementById("ticker-top-scroll");
+var bs2=document.getElementById("ticker-bottom-scroll");
+if(ts)ts.innerHTML=full;
+if(bs2)bs2.innerHTML=full;
+}
+localStorage.setItem("msgState",JSON.stringify(state));
+localStorage.setItem("msgsApplied","1");
 closeSettings();
 }
 
 function resetMsgs(){
-localStorage.removeItem("customMsgs");
+localStorage.removeItem("msgState");
+localStorage.removeItem("msgsApplied");
 location.reload();
 }
+
+function openSettings(){
+document.getElementById("admin-menu").classList.remove("visible");
+document.getElementById("settings-overlay").classList.add("visible");
+document.querySelectorAll("[data-cfg]").forEach(function(btn){btn.classList.toggle("on",!!_cfg[btn.dataset.cfg])});
+renderMsgList();
+}
+function closeSettings(){document.getElementById("settings-overlay").classList.remove("visible")}
+function toggleCfg(key,btn){_cfg[key]=!_cfg[key];btn.classList.toggle("on");saveCfg()}
 </script>
 <div class="settings-overlay" id="settings-overlay" onclick="if(event.target===this)closeSettings()">
 <div class="settings-box">
@@ -513,12 +592,17 @@ location.reload();
   <div class="settings-row"><span class="settings-label">Company Logos</span><button class="settings-toggle on" data-cfg="logos" onclick="toggleCfg('logos',this)"></button></div>
   <div class="settings-row"><span class="settings-label">Clock</span><button class="settings-toggle on" data-cfg="clock" onclick="toggleCfg('clock',this)"></button></div>
   <div class="settings-row"><span class="settings-label">Night Mode (dim)</span><button class="settings-toggle" data-cfg="nightMode" onclick="toggleCfg('nightMode',this)"></button></div>
-  <div class="settings-section">CUSTOM TICKER MESSAGES</div>
-  <div style="font-size:9px;color:var(--text-dim);margin-bottom:4px">One message per line. Leave empty for defaults.</div>
-  <textarea class="settings-input" id="settings-msgs" rows="5" placeholder="Welcome to Priceless NextCar&#10;Shuttle departs every 10 minutes&#10;Free WiFi available on board"></textarea>
+  <div class="settings-section">TICKER MESSAGES</div>
+  <div style="font-size:9px;color:var(--text-dim);margin-bottom:6px">Select which messages to display. Add your own below.</div>
+  <div id="msg-list"></div>
+  <div class="settings-section" style="margin-top:10px">ADD NEW MESSAGE</div>
+  <div style="display:flex;gap:6px">
+    <input class="settings-input" id="new-msg-input" placeholder="Type a new message..." style="margin:0;flex:1">
+    <button class="settings-btn" onclick="addCustomMsg()" style="margin:0;white-space:nowrap">+ ADD</button>
+  </div>
   <div class="settings-btn-row">
-    <button class="settings-btn" onclick="saveCustomMsgs()">SAVE MESSAGES</button>
-    <button class="settings-close" onclick="resetMsgs()">RESET DEFAULT</button>
+    <button class="settings-btn" onclick="saveMsgSettings()">SAVE & APPLY</button>
+    <button class="settings-close" onclick="resetMsgs()">RESET ALL</button>
     <button class="settings-close" onclick="closeSettings()">CLOSE</button>
   </div>
 </div>
