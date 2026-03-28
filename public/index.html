@@ -116,6 +116,26 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .forecast-bar-wrap{flex:1;height:4px;background:rgba(255,255,255,0.06);border-radius:2px;position:relative}
 .forecast-bar{position:absolute;top:0;height:100%;border-radius:2px;background:linear-gradient(90deg,#3B82F6,#F59E0B)}
 
+/* Settings Panel */
+.settings-overlay{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:10000;justify-content:center;align-items:center}
+.settings-overlay.visible{display:flex}
+.settings-box{background:var(--panel-bg);border:1px solid rgba(59,130,246,0.3);border-radius:12px;padding:20px;width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,0.8)}
+.settings-title{font-size:14px;font-weight:800;color:#fff;margin-bottom:12px;letter-spacing:1px;text-align:center}
+.settings-section{font-size:8px;font-weight:700;color:var(--blue);letter-spacing:2px;margin:12px 0 6px;text-transform:uppercase}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.settings-label{font-size:10px;font-weight:600;color:var(--text)}
+.settings-toggle{width:36px;height:20px;background:rgba(255,255,255,0.1);border-radius:10px;border:none;cursor:pointer;position:relative;transition:background .2s}
+.settings-toggle.on{background:var(--green)}
+.settings-toggle::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s}
+.settings-toggle.on::after{left:19px}
+.settings-input{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:6px 10px;font-size:10px;color:#fff;font-family:'Inter',sans-serif;width:100%;margin-top:4px}
+.settings-input:focus{outline:none;border-color:var(--blue)}
+.settings-btn{background:var(--blue);border:none;border-radius:6px;padding:6px 14px;font-size:9px;font-weight:700;color:#fff;cursor:pointer;letter-spacing:0.5px;margin-top:6px}
+.settings-btn:hover{opacity:0.85}
+.settings-btn-row{display:flex;gap:8px;margin-top:8px;justify-content:center}
+.settings-close{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:6px 18px;font-size:9px;font-weight:700;color:#fff;cursor:pointer}
+.night-mode .layout-wrapper{filter:brightness(0.4)}
+
 /* Admin Menu */
 .admin-menu{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:rgba(10,14,26,0.92);border:1px solid rgba(59,130,246,0.3);border-radius:12px;padding:12px;backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,0.6)}
 .admin-menu.visible{display:flex;gap:8px;animation:menuIn .2s ease}
@@ -193,6 +213,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
     <button class="admin-btn" onclick="adminFullscreen()"><span class="admin-btn-icon">⛶</span>FULL</button>
     <button class="admin-btn" onclick="adminExitFull()"><span class="admin-btn-icon">▫</span>EXIT FS</button>
     <button class="admin-btn" onclick="adminGpsFix(this)"><span class="admin-btn-icon">📡</span>GPS FIX</button>
+    <button class="admin-btn" onclick="openSettings()"><span class="admin-btn-icon">⚙</span>SETTINGS</button>
   </div>
   <!-- BOTTOM TICKER -->
   <div class="ticker ticker-bottom" data-scale="ticker-bottom">
@@ -421,6 +442,86 @@ document.getElementById("weather-forecast").innerHTML=html;
 }catch(e){console.error("Weather:",e)}}
 fetchWeather();setInterval(fetchWeather,6e5);
 poll();setInterval(poll,8e3);bs();setInterval(bs,6e4);
+
+// ═══ SETTINGS PANEL ═══
+var _cfg=JSON.parse(localStorage.getItem("dashCfg")||"{}");
+var CFG_DEFAULTS={weather:true,bars:true,topTicker:true,bottomTicker:true,status:true,logos:true,clock:true,nightMode:false};
+Object.keys(CFG_DEFAULTS).forEach(function(k){if(_cfg[k]===undefined)_cfg[k]=CFG_DEFAULTS[k]});
+
+function saveCfg(){localStorage.setItem("dashCfg",JSON.stringify(_cfg));applyCfg()}
+function applyCfg(){
+document.getElementById("weather-section").style.display=_cfg.weather?"":"none";
+document.getElementById("hp-to-office").style.display=_cfg.bars?"":"none";
+document.getElementById("hp-to-elot").style.display=_cfg.bars?"":"none";
+document.querySelectorAll(".ticker-top").forEach(function(e){e.style.display=_cfg.topTicker?"":"none"});
+document.querySelectorAll(".ticker-bottom").forEach(function(e){e.style.display=_cfg.bottomTicker?"":"none"});
+document.querySelectorAll(".status-section").forEach(function(e){e.style.display=_cfg.status?"":"none"});
+document.querySelectorAll(".panel-header").forEach(function(e){e.style.display=_cfg.logos?"":"none"});
+document.querySelectorAll(".panel-clock").forEach(function(e){e.style.display=_cfg.clock?"":"none"});
+if(_cfg.nightMode)document.body.classList.add("night-mode");else document.body.classList.remove("night-mode");
+}
+applyCfg();
+// Load custom ticker messages on startup
+(function(){var cm=JSON.parse(localStorage.getItem("customMsgs")||"[]");if(cm.length>0){var html="";cm.forEach(function(m){html+="<div class='ticker-item'><div class='ticker-dot'></div>"+m+"</div>"});var full=html+html;var ts=document.getElementById("ticker-top-scroll");var bs2=document.getElementById("ticker-bottom-scroll");if(ts)ts.innerHTML=full;if(bs2)bs2.innerHTML=full}})();
+
+function openSettings(){
+document.getElementById("admin-menu").classList.remove("visible");
+var s=document.getElementById("settings-overlay");
+s.classList.add("visible");
+// Sync toggles
+document.querySelectorAll("[data-cfg]").forEach(function(btn){
+btn.classList.toggle("on",!!_cfg[btn.dataset.cfg]);
+});
+// Load custom messages
+var cm=JSON.parse(localStorage.getItem("customMsgs")||"[]");
+document.getElementById("settings-msgs").value=cm.join("\n");
+}
+function closeSettings(){document.getElementById("settings-overlay").classList.remove("visible")}
+function toggleCfg(key,btn){_cfg[key]=!_cfg[key];btn.classList.toggle("on");saveCfg()}
+
+function saveCustomMsgs(){
+var txt=document.getElementById("settings-msgs").value.trim();
+var msgs=txt?txt.split("\n").filter(function(m){return m.trim()}):[];
+localStorage.setItem("customMsgs",JSON.stringify(msgs));
+// Update tickers with custom messages
+if(msgs.length>0){
+var topScroll=document.getElementById("ticker-top-scroll");
+var botScroll=document.getElementById("ticker-bottom-scroll");
+var html="";msgs.forEach(function(m){html+="<div class='ticker-item'><div class='ticker-dot'></div>"+m+"</div>"});
+// Duplicate for seamless scroll
+var fullHtml=html+html;
+if(topScroll)topScroll.innerHTML=fullHtml;
+if(botScroll)botScroll.innerHTML=fullHtml;
+}
+closeSettings();
+}
+
+function resetMsgs(){
+localStorage.removeItem("customMsgs");
+location.reload();
+}
 </script>
+<div class="settings-overlay" id="settings-overlay" onclick="if(event.target===this)closeSettings()">
+<div class="settings-box">
+  <div class="settings-title">⚙ DISPLAY SETTINGS</div>
+  <div class="settings-section">SHOW / HIDE</div>
+  <div class="settings-row"><span class="settings-label">Weather Forecast</span><button class="settings-toggle on" data-cfg="weather" onclick="toggleCfg('weather',this)"></button></div>
+  <div class="settings-row"><span class="settings-label">Progress Bars</span><button class="settings-toggle on" data-cfg="bars" onclick="toggleCfg('bars',this)"></button></div>
+  <div class="settings-row"><span class="settings-label">Top Ticker</span><button class="settings-toggle on" data-cfg="topTicker" onclick="toggleCfg('topTicker',this)"></button></div>
+  <div class="settings-row"><span class="settings-label">Bottom Ticker</span><button class="settings-toggle on" data-cfg="bottomTicker" onclick="toggleCfg('bottomTicker',this)"></button></div>
+  <div class="settings-row"><span class="settings-label">Shuttle Status</span><button class="settings-toggle on" data-cfg="status" onclick="toggleCfg('status',this)"></button></div>
+  <div class="settings-row"><span class="settings-label">Company Logos</span><button class="settings-toggle on" data-cfg="logos" onclick="toggleCfg('logos',this)"></button></div>
+  <div class="settings-row"><span class="settings-label">Clock</span><button class="settings-toggle on" data-cfg="clock" onclick="toggleCfg('clock',this)"></button></div>
+  <div class="settings-row"><span class="settings-label">Night Mode (dim)</span><button class="settings-toggle" data-cfg="nightMode" onclick="toggleCfg('nightMode',this)"></button></div>
+  <div class="settings-section">CUSTOM TICKER MESSAGES</div>
+  <div style="font-size:9px;color:var(--text-dim);margin-bottom:4px">One message per line. Leave empty for defaults.</div>
+  <textarea class="settings-input" id="settings-msgs" rows="5" placeholder="Welcome to Priceless NextCar&#10;Shuttle departs every 10 minutes&#10;Free WiFi available on board"></textarea>
+  <div class="settings-btn-row">
+    <button class="settings-btn" onclick="saveCustomMsgs()">SAVE MESSAGES</button>
+    <button class="settings-close" onclick="resetMsgs()">RESET DEFAULT</button>
+    <button class="settings-close" onclick="closeSettings()">CLOSE</button>
+  </div>
+</div>
+</div>
 </body>
 </html>
