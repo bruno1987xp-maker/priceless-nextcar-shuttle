@@ -877,6 +877,15 @@ app.listen(PORT, async () => {
   } else {
     console.log("  ⚠  No Bouncie credentials in .env");
   }
+
+  // Keep-alive: ping self every 10min to prevent Render free plan spindown
+  const RENDER_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  setInterval(() => {
+    fetch(`${RENDER_URL}/api/status`).then(() => {
+      console.log("[Keep-alive] Ping OK");
+    }).catch(() => {});
+  }, 10 * 60 * 1000);
+  console.log("  [Keep-alive] Self-ping active (every 10min)");
   console.log("");
 });
 

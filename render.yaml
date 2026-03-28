@@ -18,3 +18,5 @@ services:
         value: 10000
       - key: POLL_INTERVAL
         value: 10
+      - key: RENDER_EXTERNAL_URL
+        value: https://priceless-nextcar-shuttle.onrender.com
