@@ -34,6 +34,7 @@ let tokenExpiry = 0;
 let vehicles = [];
 let latestPositions = {};
 let lastMovedAt = {};  // imei -> Date when van last had speed > 2mph
+let engineOffAt = {};  // imei -> Date when engine turned off
 let gpsStatus = "disconnected"; // "live" | "stale" | "disconnected"
 let lastGpsFix = null;          // Date of last successful GPS data
 let lastAuthError = null;       // last auth failure message
@@ -597,11 +598,16 @@ async function pollLocations() {
 
       latestPositions[vehicle.imei] = pos;
 
-      // Track when van last moved (speed > 2mph)
+      // Track when van last moved (speed > 2mph) and engine state
       if (pos.speed > 2) {
         lastMovedAt[vehicle.imei] = new Date();
       } else if (!lastMovedAt[vehicle.imei]) {
-        lastMovedAt[vehicle.imei] = new Date(); // assume just started tracking
+        lastMovedAt[vehicle.imei] = new Date();
+      }
+      if (pos.isRunning) {
+        delete engineOffAt[vehicle.imei];
+      } else if (!engineOffAt[vehicle.imei]) {
+        engineOffAt[vehicle.imei] = new Date();
       }
 
       // Calculate direction & progress
@@ -685,6 +691,8 @@ function buildShuttleData(pos, index) {
     distToOffice: distToOffice.toFixed(2),
     distToLax: distToLax.toFixed(2),
     timestamp: pos.timestamp,
+    lastMovedAt: lastMovedAt[pos.imei] ? lastMovedAt[pos.imei].toISOString() : null,
+    engineOffAt: engineOffAt[pos.imei] ? engineOffAt[pos.imei].toISOString() : null,
   };
 }
 
