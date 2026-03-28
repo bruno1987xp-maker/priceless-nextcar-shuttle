@@ -2,7 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=1400, initial-scale=0.28, minimum-scale=0.1, maximum-scale=10, user-scalable=yes, shrink-to-fit=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=0.1, maximum-scale=10, user-scalable=yes">
+<script>
+// TV/Desktop: use fixed 1400px width for consistent display. Phone: use device-width for responsive.
+if(screen.width > 800 && !('ontouchstart' in window && screen.width < 1200)){
+document.querySelector('meta[name=viewport]').content='width=1400, initial-scale=0.28, minimum-scale=0.1, maximum-scale=10, user-scalable=yes, shrink-to-fit=no';
+}
+</script>
 <title>Priceless NextCar Shuttle Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
