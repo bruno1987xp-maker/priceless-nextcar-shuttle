@@ -184,10 +184,11 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
   <div id="map"></div>
   <div class="admin-menu" id="admin-menu">
     <button class="admin-btn" onclick="location.reload()"><span class="admin-btn-icon">🔄</span>REFRESH</button>
-    <button class="admin-btn" onclick="mp.zoomIn()"><span class="admin-btn-icon">🔍+</span>ZOOM IN</button>
-    <button class="admin-btn" onclick="mp.zoomOut()"><span class="admin-btn-icon">🔍−</span>ZOOM OUT</button>
-    <button class="admin-btn" onclick="mp.setView(C,17)"><span class="admin-btn-icon">📍</span>CENTER</button>
-    <button class="admin-btn" onclick="document.documentElement.requestFullscreen?document.documentElement.requestFullscreen():0"><span class="admin-btn-icon">⛶</span>FULL</button>
+    <button class="admin-btn" onclick="adminZoom(1)"><span class="admin-btn-icon">🔍+</span>ZOOM IN</button>
+    <button class="admin-btn" onclick="adminZoom(-1)"><span class="admin-btn-icon">🔍−</span>ZOOM OUT</button>
+    <button class="admin-btn" onclick="adminZoom(0)"><span class="admin-btn-icon">↺</span>RESET</button>
+    <button class="admin-btn" onclick="adminFullscreen()"><span class="admin-btn-icon">⛶</span>FULL</button>
+    <button class="admin-btn" onclick="adminExitFull()"><span class="admin-btn-icon">▫</span>EXIT FS</button>
     <button class="admin-btn" onclick="window.open('/reauth','_blank')"><span class="admin-btn-icon">📡</span>GPS FIX</button>
   </div>
   <!-- BOTTOM TICKER -->
@@ -242,6 +243,13 @@ var lblLayer=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}
 setTimeout(function(){satLayer.addTo(mp);lblLayer.addTo(mp)},100);
 L.marker(O,{icon:L.divIcon({className:"marker-label office-label",html:"<img src='https://www.pricelesscarrental.com/smsite/npauto_7/media/imgs/4056_priceless-logo-200x60.png' style='height:16px;vertical-align:middle;margin-right:3px;filter:brightness(1.5)'><img src='https://www.nextcarrental.com/smsite/npauto_8/media/imgs/36557_nextcar-logo.png' style='height:16px;vertical-align:middle;filter:brightness(1.5)'>",iconSize:[130,26],iconAnchor:[65,13]})}).addTo(mp);
 L.marker(X,{icon:L.divIcon({className:"marker-label lax-label",html:"\u2708\uFE0F E-LOT",iconSize:[80,24],iconAnchor:[40,12]})}).addTo(mp);
+// Page zoom — scales entire layout, persists in localStorage
+var _zoom=parseFloat(localStorage.getItem("pageZoom"))||1;
+function applyZoom(){document.querySelector(".layout-wrapper").style.transform="scale("+_zoom+")";document.querySelector(".layout-wrapper").style.transformOrigin="top left";document.querySelector(".layout-wrapper").style.width=(100/_zoom)+"vw";document.querySelector(".layout-wrapper").style.height=(100/_zoom)+"vh";localStorage.setItem("pageZoom",_zoom)}
+if(_zoom!==1)applyZoom();
+function adminZoom(dir){if(dir===0){_zoom=1}else{_zoom=Math.round((_zoom+dir*0.05)*100)/100;_zoom=Math.max(0.5,Math.min(1.5,_zoom))}applyZoom();mp.invalidateSize()}
+function adminFullscreen(){if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen();else if(document.documentElement.webkitRequestFullscreen)document.documentElement.webkitRequestFullscreen()}
+function adminExitFull(){if(document.exitFullscreen)document.exitFullscreen();else if(document.webkitExitFullscreen)document.webkitExitFullscreen()}
 // Admin menu — click map to show, auto-hide after 5s
 var adminTimer=null;
 mp.on("click",function(){
