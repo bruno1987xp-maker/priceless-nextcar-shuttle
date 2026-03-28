@@ -33,6 +33,10 @@ let tokenExpiry = 0;
 let vehicles = [];
 let latestPositions = {};
 let lastMovedAt = {};  // imei -> Date when van last had speed > 2mph
+let gpsStatus = "disconnected"; // "live" | "stale" | "disconnected"
+let lastGpsFix = null;          // Date of last successful GPS data
+let lastAuthError = null;       // last auth failure message
+let consecutiveAuthFailures = 0;
 
 // ═══════════════════════════════════════════════════
 //  DATABASE — Trip Logger & Learning Engine
@@ -72,7 +76,62 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_trips_direction ON trips(direction, status);
   CREATE INDEX IF NOT EXISTS idx_trips_hour ON trips(hour_of_day, day_of_week);
   CREATE INDEX IF NOT EXISTS idx_breadcrumbs_trip ON breadcrumbs(trip_id);
+
+  CREATE TABLE IF NOT EXISTS auth_store (
+    key TEXT PRIMARY KEY,
+    val TEXT NOT NULL,
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
 `);
+
+// Auth store prepared statements
+const dbSaveAuth = db.prepare(`INSERT OR REPLACE INTO auth_store (key, val, updated_at) VALUES (?, ?, datetime('now'))`);
+const dbLoadAuth = db.prepare(`SELECT val FROM auth_store WHERE key = ?`);
+
+// ─── Token persistence — 3 layers: SQLite > file > env ───
+const TOKEN_FILE = path.join(__dirname, ".bouncie-token.json");
+
+function saveToken(token, expiry, authCode) {
+  try {
+    dbSaveAuth.run("access_token", token);
+    dbSaveAuth.run("token_expiry", String(expiry));
+    if (authCode) dbSaveAuth.run("auth_code", authCode);
+  } catch(e) { console.error("[Auth] SQLite save error:", e.message); }
+  try {
+    const data = { token, expiry };
+    if (authCode) data.authCode = authCode;
+    require("fs").writeFileSync(TOKEN_FILE, JSON.stringify(data));
+  } catch(e) {}
+}
+
+function loadToken() {
+  try {
+    const t = dbLoadAuth.get("access_token");
+    const e = dbLoadAuth.get("token_expiry");
+    if (t && e && Number(e.val) > Date.now()) {
+      accessToken = t.val; tokenExpiry = Number(e.val);
+      console.log("[Auth] Loaded token from SQLite (expires in " + Math.round((tokenExpiry - Date.now()) / 60000) + "min)");
+      return true;
+    }
+  } catch(e) {}
+  try {
+    const d = JSON.parse(require("fs").readFileSync(TOKEN_FILE, "utf8"));
+    if (d.token && d.expiry > Date.now()) {
+      accessToken = d.token; tokenExpiry = d.expiry;
+      console.log("[Auth] Loaded token from file (expires in " + Math.round((tokenExpiry - Date.now()) / 60000) + "min)");
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+function getStoredAuthCode() {
+  try {
+    const row = dbLoadAuth.get("auth_code");
+    if (row && row.val) return row.val;
+  } catch(e) {}
+  return AUTH_CODE;
+}
 
 // Prepared statements for speed
 const insertTrip = db.prepare(`
@@ -397,49 +456,106 @@ function predictETA(direction, progress, fallbackDistMiles, currentSpeed) {
 // ═══════════════════════════════════════════════════
 //  BOUNCIE API
 // ═══════════════════════════════════════════════════
+async function exchangeAuthCode(code, label) {
+  console.log(`[Auth] Exchanging auth code (${label})...`);
+  const res = await fetch(BOUNCIE_AUTH, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: CLIENT_ID, client_secret: CLIENT_SECRET,
+      grant_type: "authorization_code", code, redirect_uri: REDIRECT_URI,
+    }),
+  });
+  if (!res.ok) throw new Error(`Token failed (${res.status}): ${await res.text()}`);
+  const data = await res.json();
+  accessToken = data.access_token;
+  tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
+  saveToken(accessToken, tokenExpiry, code);
+  consecutiveAuthFailures = 0;
+  lastAuthError = null;
+  console.log(`[Auth] Token obtained (${label}), expires in ${Math.round((tokenExpiry - Date.now()) / 60000)}min`);
+  return accessToken;
+}
+
 async function getAccessToken() {
   if (accessToken && Date.now() < tokenExpiry) return accessToken;
-  console.log("[Bouncie] Exchanging auth code for access token...");
-  try {
-    const res = await fetch(BOUNCIE_AUTH, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        grant_type: "authorization_code",
-        code: AUTH_CODE,
-        redirect_uri: REDIRECT_URI,
-      }),
-    });
-    if (!res.ok) throw new Error(`Token failed (${res.status}): ${await res.text()}`);
-    const data = await res.json();
-    accessToken = data.access_token;
-    tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
-    console.log("[Bouncie] Access token obtained");
-    return accessToken;
-  } catch (e) {
-    console.error("[Bouncie] Auth error:", e.message);
-    return null;
+  if (loadToken()) return accessToken;
+
+  const codeSources = [
+    { code: getStoredAuthCode(), label: "SQLite/stored" },
+    { code: AUTH_CODE, label: "env var" },
+  ];
+  const seen = new Set();
+  const unique = codeSources.filter(s => s.code && !seen.has(s.code) && seen.add(s.code));
+
+  for (const source of unique) {
+    try {
+      return await exchangeAuthCode(source.code, source.label);
+    } catch (e) {
+      console.error(`[Auth] Failed with ${source.label}: ${e.message}`);
+    }
+  }
+
+  consecutiveAuthFailures++;
+  lastAuthError = `All auth codes failed (${consecutiveAuthFailures} consecutive failures)`;
+  gpsStatus = "disconnected";
+  console.error(`[Auth] *** GPS DISCONNECTED — ${lastAuthError}. Visit /reauth to reconnect ***`);
+  return null;
+}
+
+async function tokenWatchdog() {
+  const now = Date.now();
+  const timeLeft = tokenExpiry - now;
+  const timeLeftMin = Math.round(timeLeft / 60000);
+
+  if (accessToken && timeLeft > 0 && timeLeft < 15 * 60 * 1000) {
+    console.log(`[Watchdog] Token expires in ${timeLeftMin}min, refreshing proactively...`);
+    const code = getStoredAuthCode();
+    if (code) {
+      try {
+        await exchangeAuthCode(code, "watchdog/proactive");
+        console.log("[Watchdog] Proactive refresh succeeded");
+      } catch (e) {
+        console.error("[Watchdog] Proactive refresh failed:", e.message);
+      }
+    }
+  } else if (!accessToken || timeLeft <= 0) {
+    console.log("[Watchdog] No valid token, attempting recovery...");
+    await getAccessToken();
+  }
+
+  if (lastGpsFix) {
+    const age = now - lastGpsFix.getTime();
+    if (age < 2 * 60 * 1000) gpsStatus = "live";
+    else if (age < 10 * 60 * 1000) gpsStatus = "stale";
+    else gpsStatus = "disconnected";
+  } else if (!accessToken) {
+    gpsStatus = "disconnected";
   }
 }
 
 async function bouncieGet(endpoint, params = {}) {
   const token = await getAccessToken();
-  if (!token) return null;
+  if (!token) { gpsStatus = "disconnected"; return null; }
   const url = new URL(`${BOUNCIE_API}${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString(), { headers: { Authorization: token }, timeout: 10000 });
-  if (res.status === 401) {
-    accessToken = null; tokenExpiry = 0;
-    const newToken = await getAccessToken();
-    if (!newToken) return null;
-    const retry = await fetch(url.toString(), { headers: { Authorization: newToken }, timeout: 10000 });
-    if (!retry.ok) return null;
-    return retry.json();
+  try {
+    const res = await fetch(url.toString(), { headers: { Authorization: token }, timeout: 10000 });
+    if (res.status === 401) {
+      console.log("[API] 401 — token rejected, clearing and retrying...");
+      accessToken = null; tokenExpiry = 0;
+      const newToken = await getAccessToken();
+      if (!newToken) return null;
+      const retry = await fetch(url.toString(), { headers: { Authorization: newToken }, timeout: 10000 });
+      if (!retry.ok) return null;
+      return retry.json();
+    }
+    if (!res.ok) return null;
+    return res.json();
+  } catch (e) {
+    console.error(`[API] Fetch error: ${e.message}`);
+    return null;
   }
-  if (!res.ok) return null;
-  return res.json();
 }
 
 // ─── Math ───
@@ -459,6 +575,8 @@ async function pollLocations() {
     const data = await bouncieGet("/vehicles");
     if (!data || !Array.isArray(data)) return;
     vehicles = data;
+    lastGpsFix = new Date();
+    gpsStatus = "live";
 
     for (const vehicle of vehicles) {
       const loc = vehicle.stats && vehicle.stats.location;
@@ -611,6 +729,9 @@ app.get("/api/shuttles", (req, res) => {
     avgTrips,
     vehicleCount: vehicles.length,
     lastUpdate: new Date().toISOString(),
+    gpsStatus,
+    lastGpsFix: lastGpsFix ? lastGpsFix.toISOString() : null,
+    tokenExpiresIn: accessToken ? Math.max(0, Math.round((tokenExpiry - Date.now()) / 60000)) : 0,
   });
 });
 
@@ -654,6 +775,11 @@ app.get("/api/status", (req, res) => {
   res.json({
     configured: !!(CLIENT_ID && CLIENT_SECRET && AUTH_CODE),
     connected: !!accessToken,
+    gpsStatus,
+    lastGpsFix: lastGpsFix ? lastGpsFix.toISOString() : null,
+    tokenExpiresIn: accessToken ? Math.max(0, Math.round((tokenExpiry - Date.now()) / 60000)) : 0,
+    lastAuthError,
+    consecutiveAuthFailures,
     vehicleCount: vehicles.length,
     pollInterval: POLL_INTERVAL / 1000,
     brain: {
@@ -661,6 +787,52 @@ app.get("/api/status", (req, res) => {
       learned: stats.total_trips >= 3,
     },
   });
+});
+
+// ─── One-tap reconnect: redirects to Bouncie OAuth ───
+app.get("/reauth", (req, res) => {
+  const authUrl = `https://auth.bouncie.com/dialog/authorize?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=vehicle+location+tripData`;
+  console.log("[Auth] Reauth requested, redirecting to Bouncie OAuth...");
+  res.redirect(authUrl);
+});
+
+// OAuth callback — captures fresh auth code and exchanges it immediately
+app.get("/callback", async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.send("No code received");
+  console.log("[Auth] Received fresh auth code via OAuth callback");
+  try {
+    const tokenRes = await fetch(BOUNCIE_AUTH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: CLIENT_ID, client_secret: CLIENT_SECRET,
+        grant_type: "authorization_code", code, redirect_uri: REDIRECT_URI,
+      }),
+    });
+    const data = await tokenRes.json();
+    if (data.access_token) {
+      accessToken = data.access_token;
+      tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
+      saveToken(accessToken, tokenExpiry, code);
+      consecutiveAuthFailures = 0;
+      lastAuthError = null;
+      gpsStatus = "live";
+      try {
+        const fs = require("fs");
+        const envPath = path.join(__dirname, ".env");
+        let env = fs.readFileSync(envPath, "utf8");
+        env = env.replace(/BOUNCIE_AUTH_CODE=.*/, `BOUNCIE_AUTH_CODE=${code}`);
+        fs.writeFileSync(envPath, env);
+      } catch(e) { /* .env may not be writable on Render */ }
+      console.log("[Auth] Token obtained via callback! Starting poll...");
+      await fetchVehicles();
+      await pollLocations();
+      res.send("<h1 style='color:#10B981'>&#x2713; GPS Connected!</h1><p>" + vehicles.length + " vehicle(s) found. Token expires in " + Math.round((tokenExpiry - Date.now()) / 60000) + " minutes (auto-refresh enabled).</p><p>You can close this tab.</p><script>setTimeout(()=>window.close(),3000)</script>");
+    } else {
+      res.send("<h1>Error</h1><pre>" + JSON.stringify(data) + "</pre>");
+    }
+  } catch(e) { res.send("<h1>Error</h1><pre>" + e.message + "</pre>"); }
 });
 
 app.get("/api/debug", async (req, res) => {
@@ -689,6 +861,8 @@ app.listen(PORT, async () => {
     console.log(`  [Bouncie] Polling every ${POLL_INTERVAL / 1000}s`);
     await pollLocations();
     setInterval(pollLocations, POLL_INTERVAL);
+    setInterval(tokenWatchdog, 5 * 60 * 1000);
+    console.log("  [Watchdog] Token watchdog active (checks every 5min)");
   } else {
     console.log("  ⚠  No Bouncie credentials in .env");
   }

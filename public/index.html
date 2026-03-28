@@ -52,6 +52,20 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .live-text{font-size:8px;font-weight:700;color:var(--green);letter-spacing:1px}
 .panel-clock{font-size:16px;font-weight:800;color:rgba(255,255,255,0.6);font-variant-numeric:tabular-nums}
 
+/* GPS Status Indicator */
+.gps-badge{display:flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;font-size:7px;font-weight:700;letter-spacing:0.8px;cursor:default}
+.gps-badge.gps-live{background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.3);color:#10B981}
+.gps-badge.gps-stale{background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);color:#F59E0B}
+.gps-badge.gps-disconnected{background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#EF4444;cursor:pointer}
+.gps-dot{width:5px;height:5px;border-radius:50%}
+.gps-live .gps-dot{background:#10B981;animation:pulse 2s ease infinite}
+.gps-stale .gps-dot{background:#F59E0B;animation:pulse 1s ease infinite}
+.gps-disconnected .gps-dot{background:#EF4444;animation:pulse 0.5s ease infinite}
+.gps-reconnect-bar{display:none;padding:8px 20px;background:linear-gradient(90deg,rgba(239,68,68,0.15),rgba(239,68,68,0.08));border-bottom:1px solid rgba(239,68,68,0.2);text-align:center}
+.gps-reconnect-bar.active{display:block}
+.gps-reconnect-btn{background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.4);color:#FCA5A5;font-size:9px;font-weight:700;letter-spacing:1px;padding:5px 14px;border-radius:4px;cursor:pointer}
+.gps-reconnect-btn:hover{background:rgba(239,68,68,0.35)}
+
 /* Status */
 .status-section{padding:14px 20px;border-bottom:1px solid var(--card-border);text-align:center}
 .status-label{font-size:7px;font-weight:700;color:var(--text-muted);letter-spacing:2px;margin-bottom:6px}
@@ -166,7 +180,8 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 <!-- RIGHT PANEL -->
 <div class="info-panel">
   <div class="panel-header"><div class="panel-logos"><div class="p-badge p-badge-blue">PRICELESS</div><div class="p-badge p-badge-green">NEXTCAR</div></div><div class="panel-title">Shuttle Tracker</div><div class="panel-address">9750 Airport Blvd, Los Angeles</div></div>
-  <div class="panel-live-row"><div class="live-pill"><div class="live-dot"></div><span class="live-text">LIVE</span></div><div class="panel-clock" id="clock">--:--</div></div>
+  <div class="panel-live-row"><div class="live-pill"><div class="live-dot"></div><span class="live-text">LIVE</span></div><div class="gps-badge gps-live" id="gps-badge" title="GPS Status"><div class="gps-dot"></div><span id="gps-label">GPS</span></div><div class="panel-clock" id="clock">--:--</div></div>
+  <div class="gps-reconnect-bar" id="gps-reconnect"><span style="font-size:8px;color:#FCA5A5;margin-right:8px">GPS SIGNAL LOST</span><button class="gps-reconnect-btn" onclick="window.open('/reauth','_blank')">RECONNECT</button></div>
   <div class="active-content" id="active-content">
     <div class="status-section"><div class="status-label">SHUTTLE STATUS</div><div class="status-direction status-running" id="status-dir"><span class="status-text" id="status-text">CONNECTING...</span></div></div>
     <div class="eta-section" id="eta-section"><div class="eta-number" id="eta-num">--</div><div class="eta-unit" id="eta-unit">MINUTES</div></div>
@@ -243,7 +258,15 @@ var countMsg=d.shuttles.length+" shuttle"+(d.shuttles.length>1?"s":"")+" active"
 var items=topScroll.querySelectorAll(".ticker-item");
 if(items.length>0)items[0].innerHTML="<div class='ticker-dot'></div>"+countMsg;
 if(items.length>4)items[4].innerHTML="<div class='ticker-dot'></div>"+countMsg;
-mp.setView(C,17,{animate:!0,duration:1})}catch(e){console.error("Poll:",e)}}
+mp.setView(C,17,{animate:!0,duration:1});
+updateGpsBadge(d.gpsStatus||"live")}catch(e){console.error("Poll:",e);updateGpsBadge("disconnected")}}
+function updateGpsBadge(status){
+var badge=document.getElementById("gps-badge"),label=document.getElementById("gps-label"),bar=document.getElementById("gps-reconnect");
+badge.className="gps-badge gps-"+status;
+if(status==="live"){label.textContent="GPS";bar.classList.remove("active")}
+else if(status==="stale"){label.textContent="STALE";bar.classList.remove("active")}
+else{label.textContent="OFFLINE";bar.classList.add("active")}
+}
 var slides=[{i:"\uD83E\uDEB1",m:"Please wait in the lobby",s:"designated pickup area"},{i:"\u23F0",m:"Avg Wait: 8\u201312 min",s:"varies during busy hours"},{i:"\uD83D\uDE90",m:"Shuttle runs continuously",s:"airport \u2194 office"},{i:"\u2764\uFE0F",m:"Fast, safe & reliable",s:"our team will assist you"}],ci=0;
 function nextSlide(){var el=document.getElementById("carousel-slide");el.innerHTML="<div class='carousel-icon'>"+slides[ci].i+"</div><div class='carousel-main'>"+slides[ci].m+"</div><div class='carousel-sub'>"+slides[ci].s+"</div>";el.style.animation="none";el.offsetHeight;el.style.animation="fadeSlide .6s ease";ci=(ci+1)%slides.length}
 nextSlide();setInterval(nextSlide,8e3);
