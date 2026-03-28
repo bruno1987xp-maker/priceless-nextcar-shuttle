@@ -43,7 +43,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .ticker-bottom .ticker-dot{background:var(--green)}
 
 /* ═══ RIGHT PANEL ═══ */
-.info-panel{width:var(--panel-width);min-width:var(--panel-width);height:100vh;background:var(--panel-bg);border-left:1px solid var(--card-border);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.info-panel{width:var(--panel-width);min-width:var(--panel-width);height:100vh;background:var(--panel-bg);border-left:1px solid var(--card-border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;flex-shrink:0}
 .panel-header{padding:8px 20px 6px;border-bottom:1px solid var(--card-border);text-align:center}
 .panel-logos{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px}
 .p-badge{padding:3px 8px;border-radius:4px;font-size:9px;font-weight:800;letter-spacing:1.2px}
@@ -521,7 +521,26 @@ if(window._bar1>75)offTk.classList.add("hp-green");else offTk.classList.add("hp-
 var elotTk=document.getElementById("hp-track-elot");elotTk.className="hp-track";
 document.getElementById("hp-fill-elot").style.width=window._bar2+"%";
 if(window._bar2>75)elotTk.classList.add("hp-green");else elotTk.classList.add("hp-blue")
-mp.setView(C,17,{animate:!0,duration:1});
+// Smart zoom: if any visible shuttle is outside normal perimeter, zoom to fit all
+// Normal perimeter: ~0.01 degrees around the E-LOT/Office midpoint
+var ROUTE_BOUNDS=[[33.944,-118.395],[33.953,-118.380]]; // normal view box
+var allInBounds=true;var visiblePoints=[O,X]; // always include both fixed points
+d.shuttles.forEach(function(sh){
+var pt=[sh.lat,sh.lng];
+visiblePoints.push(pt);
+// Check if shuttle is outside normal route box
+if(sh.lat<ROUTE_BOUNDS[0][0]||sh.lat>ROUTE_BOUNDS[1][0]||sh.lng<ROUTE_BOUNDS[0][1]||sh.lng>ROUTE_BOUNDS[1][1]){
+// Outside normal route — but if stopped (speed=0), hide it (gas station)
+if(sh.speed===0&&sh.direction!=="to-office"&&sh.direction!=="to-lax"){
+if(sMkrs[sh.imei]){mp.removeLayer(sMkrs[sh.imei]);delete sMkrs[sh.imei]}
+if(tLines[sh.imei]){tLines[sh.imei].forEach(function(l){mp.removeLayer(l)});delete tLines[sh.imei]}
+}else{
+allInBounds=false; // moving outside bounds — need to zoom out
+}
+}
+});
+if(allInBounds){mp.setView(C,17,{animate:!0,duration:1})}
+else{var bounds=L.latLngBounds(visiblePoints);mp.fitBounds(bounds,{animate:!0,duration:1,padding:[30,30]})}
 updateGpsBadge(d.gpsStatus||"live")}catch(e){console.error("Poll:",e);updateGpsBadge("disconnected")}}
 function updateGpsBadge(status){
 var badge=document.getElementById("gps-badge"),label=document.getElementById("gps-label"),bar=document.getElementById("gps-reconnect");
