@@ -271,26 +271,32 @@ document.getElementById("status-dir").className="status-direction "+di.c;
 var lines=[];
 d.shuttles.forEach(function(sh,i){var nm=NAMES[i]||("Shuttle "+(i+1));var dd=D[sh.direction]||D["to-office"];lines.push(nm+" \u2192 "+dd.t)});
 document.getElementById("status-text").innerHTML=lines.join("<br>");
-// Update both progress bars — mirrored, only moves forward
-var rawPct=0,dir=s.direction;
-if(dir==="to-office")rawPct=s.progress;
-else if(dir==="to-lax")rawPct=s.progress;
-else if(dir==="at-office")rawPct=100;
-else rawPct=0;
-// Only move forward — never let bar go backwards
-if(typeof window._lastBarPct==="undefined")window._lastBarPct=0;
-if(typeof window._lastBarDir==="undefined")window._lastBarDir=dir;
+// Per-shuttle progress tracking (forward-only, per imei+direction)
+if(!window._barMem)window._barMem={};
+d.shuttles.forEach(function(sh){
+var key=sh.imei;
+if(!window._barMem[key])window._barMem[key]={dir:sh.direction,pct:0};
+var mem=window._barMem[key];
 // Reset on direction change
-if(dir!==window._lastBarDir){window._lastBarPct=0;window._lastBarDir=dir}
-// Only increase
-var smoothPct=Math.max(window._lastBarPct,rawPct);
-window._lastBarPct=smoothPct;
-// Bar 1: E-LOT → OFFICE (fills when going to office)
-var bar1Pct=(dir==="to-office"||dir==="at-office")?smoothPct:(100-smoothPct);
+if(sh.direction!==mem.dir){mem.pct=0;mem.dir=sh.direction}
+// Only move forward
+var raw=sh.progress||0;
+mem.pct=Math.max(mem.pct,raw);
+});
+// Find best shuttle per route (closest to arriving)
+var bestToOffice=null,bestToElot=null;
+d.shuttles.forEach(function(sh){
+var mem=window._barMem[sh.imei];
+var pct=mem?mem.pct:(sh.progress||0);
+if(sh.direction==="to-office"&&(!bestToOffice||pct>bestToOffice.pct)){bestToOffice={pct:pct,sh:sh}}
+if(sh.direction==="to-lax"&&(!bestToElot||pct>bestToElot.pct)){bestToElot={pct:pct,sh:sh}}
+});
+// Bar 1: E-LOT → OFFICE
+var bar1Pct=bestToOffice?bestToOffice.pct:(bestToElot?(100-bestToElot.pct):0);
 var offTk=document.getElementById("hp-track-office");offTk.className="hp-track";
 document.getElementById("hp-fill-office").style.width=bar1Pct+"%";
 if(bar1Pct>75)offTk.classList.add("hp-green");else if(bar1Pct>30)offTk.classList.add("hp-blue");else offTk.classList.add("hp-blue");
-// Bar 2: OFFICE → E-LOT (inverted — mirror of bar 1)
+// Bar 2: OFFICE → E-LOT (mirror)
 var bar2Pct=100-bar1Pct;
 var elotTk=document.getElementById("hp-track-elot");elotTk.className="hp-track";
 document.getElementById("hp-fill-elot").style.width=bar2Pct+"%";
