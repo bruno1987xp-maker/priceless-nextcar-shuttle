@@ -73,14 +73,8 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .status-running .status-text{color:var(--green)}
 .status-parked .status-text{color:var(--gold)}
 
-/* ETA */
-.eta-section{padding:6px 20px;text-align:center}
-.eta-number{font-size:48px;font-weight:900;line-height:1;letter-spacing:-3px;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#FFFFFF 0%,#93C5FD 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-.eta-unit{font-size:11px;font-weight:600;color:var(--text-dim);margin-top:1px;letter-spacing:2px;text-transform:uppercase}
-.eta-parked .eta-number{font-size:28px;letter-spacing:-1px;background:linear-gradient(180deg,#FBBF24 0%,#F59E0B 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
-
-/* HP Bar */
-.hp-section{padding:0 20px 8px}
+/* HP Bars */
+.hp-section{padding:4px 20px 6px}
 .hp-labels{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
 .hp-endpoint{font-size:7px;font-weight:700;color:var(--text-muted);letter-spacing:1px}
 .hp-pct{font-size:11px;font-weight:900;color:var(--blue);font-variant-numeric:tabular-nums}
@@ -203,8 +197,8 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
   <div class="gps-reconnect-bar" id="gps-reconnect"><span style="font-size:8px;color:#FCA5A5;margin-right:8px">GPS SIGNAL LOST</span><button class="gps-reconnect-btn" onclick="window.open('/reauth','_blank')">RECONNECT</button></div>
   <div class="active-content" id="active-content">
     <div class="status-section"><div class="status-label">SHUTTLE STATUS</div><div class="status-direction status-running" id="status-dir"><span class="status-text" id="status-text">CONNECTING...</span></div></div>
-    <div class="eta-section" id="eta-section"><div class="eta-number" id="eta-num">--</div><div class="eta-unit" id="eta-unit">MINUTES</div></div>
-    <div class="hp-section"><div class="hp-labels"><span class="hp-endpoint" id="hp-from">E-LOT</span><span class="hp-pct" id="hp-pct">0%</span><span class="hp-endpoint" id="hp-to">OFFICE</span></div><div class="hp-track hp-blue" id="hp-track"><div class="hp-fill" id="hp-fill" style="width:0%"></div></div></div>
+    <div class="hp-section" id="hp-to-office"><div class="hp-labels"><span class="hp-endpoint">E-LOT</span><span class="hp-pct" id="hp-pct-office">0%</span><span class="hp-endpoint">OFFICE</span></div><div class="hp-track hp-blue" id="hp-track-office"><div class="hp-fill" id="hp-fill-office" style="width:0%"></div></div></div>
+    <div class="hp-section" id="hp-to-elot"><div class="hp-labels"><span class="hp-endpoint">OFFICE</span><span class="hp-pct" id="hp-pct-elot">0%</span><span class="hp-endpoint">E-LOT</span></div><div class="hp-track hp-blue" id="hp-track-elot"><div class="hp-fill" id="hp-fill-elot" style="width:0%"></div></div></div>
     <div class="info-carousel"><div class="carousel-slide" id="carousel-slide"></div></div>
   </div>
   <div class="parked-panel" id="parked-panel"><div class="parked-logos"><div class="p-badge p-badge-blue parked-badge">PRICELESS</div><div class="parked-amp">&amp;</div><div class="p-badge p-badge-green parked-badge">NEXTCAR</div></div><div class="parked-divider"></div><div class="parked-title">Shuttle on Standby</div><div class="parked-msg">Please check with our front desk for shuttle availability.</div></div>
@@ -240,14 +234,11 @@ var PT=12e5,lastDirs={};
 async function poll(){try{var r=await fetch("/api/shuttles"),d=await r.json();
 if(d.mode==="waiting"||!d.shuttles.length){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}
 document.getElementById("waiting").classList.add("hidden");
-// Standby logic: 10min no movement OR 5min engine off
+// Standby only after 10min no movement
 var now=Date.now();
 var allStandby=d.shuttles.every(function(s){
 var movedAgo=s.lastMovedAt?now-new Date(s.lastMovedAt).getTime():999999999;
-var engOffAgo=s.engineOffAt?now-new Date(s.engineOffAt).getTime():999999999;
-var noMoveStandby=movedAgo>10*60*1000;
-var engOffStandby=s.engineOffAt&&engOffAgo>5*60*1000;
-return noMoveStandby||engOffStandby;
+return movedAgo>10*60*1000;
 });
 if(allStandby){document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active")}
 else{document.getElementById("parked-panel").classList.remove("active");document.getElementById("active-content").classList.remove("hidden")}
@@ -273,23 +264,31 @@ tLines[s.imei].push(L.polyline(trails[s.imei],{color:clr,weight:3,opacity:.5,lin
 var isMoving=s.direction==="to-office"||s.direction==="to-lax";
 if(isMoving&&s.prediction&&(!bestEta||s.prediction.eta<bestEta)){bestEta=s.prediction.eta;bestShuttle={s:s,i:i,name:name}}
 });
-// Update panel with best shuttle info or first shuttle
+// Update panel status text (no ETA minutes)
 var focus=bestShuttle?bestShuttle:{s:d.shuttles[0],i:0,name:NAMES[0]};
 var s=focus.s,di=D[s.direction]||D["to-office"];
-var isParked=s.direction==="at-office"||s.direction==="at-lax";
 document.getElementById("status-dir").className="status-direction "+di.c;
-// Build multi-shuttle status — only show ETA when learned from trips
 var lines=[];
-d.shuttles.forEach(function(sh,i){var nm=NAMES[i]||("Shuttle "+(i+1));var dd=D[sh.direction]||D["to-office"];var isP=sh.direction==="at-office"||sh.direction==="at-lax";var etaTxt=(!isP&&sh.prediction&&sh.prediction.learned)?" in "+sh.prediction.eta+" min":"";lines.push(nm+" \u2192 "+dd.t+etaTxt)});
+d.shuttles.forEach(function(sh,i){var nm=NAMES[i]||("Shuttle "+(i+1));var dd=D[sh.direction]||D["to-office"];lines.push(nm+" \u2192 "+dd.t)});
 document.getElementById("status-text").innerHTML=lines.join("<br>");
-var es=document.getElementById("eta-section");
-if(!bestShuttle){es.classList.add("eta-parked");document.getElementById("eta-num").textContent="READY";document.getElementById("eta-unit").textContent="ALL SHUTTLES STANDING BY"}
-else if(bestShuttle.s.prediction&&bestShuttle.s.prediction.learned){es.classList.remove("eta-parked");document.getElementById("eta-num").textContent=bestShuttle.s.prediction.eta;document.getElementById("eta-unit").textContent="MINUTES"}
-else{es.classList.remove("eta-parked");document.getElementById("eta-num").textContent="EN ROUTE";document.getElementById("eta-unit").textContent="SHUTTLE ON THE WAY"}
-document.getElementById("hp-from").textContent=di.f;document.getElementById("hp-to").textContent=di.o;
-document.getElementById("hp-pct").textContent=s.progress+"%";document.getElementById("hp-fill").style.width=s.progress+"%";
-var tk=document.getElementById("hp-track");tk.className="hp-track";
-if(isParked)tk.classList.add("hp-gold");else if(s.progress>75)tk.classList.add("hp-green");else if(s.progress>30)tk.classList.add("hp-blue");else tk.classList.add("hp-red");
+// Update both progress bars — find best shuttle per direction
+var toOffice=null,toElot=null;
+d.shuttles.forEach(function(sh){
+if(sh.direction==="to-office")toOffice=sh;
+else if(sh.direction==="to-lax")toElot=sh;
+});
+// Bar 1: E-LOT → OFFICE
+var offPct=toOffice?toOffice.progress:0;
+var offTk=document.getElementById("hp-track-office");offTk.className="hp-track";
+document.getElementById("hp-pct-office").textContent=offPct+"%";
+document.getElementById("hp-fill-office").style.width=offPct+"%";
+if(toOffice){if(offPct>75)offTk.classList.add("hp-green");else if(offPct>30)offTk.classList.add("hp-blue");else offTk.classList.add("hp-red")}else{offTk.classList.add("hp-gold")}
+// Bar 2: OFFICE → E-LOT
+var elotPct=toElot?toElot.progress:0;
+var elotTk=document.getElementById("hp-track-elot");elotTk.className="hp-track";
+document.getElementById("hp-pct-elot").textContent=elotPct+"%";
+document.getElementById("hp-fill-elot").style.width=elotPct+"%";
+if(toElot){if(elotPct>75)elotTk.classList.add("hp-green");else if(elotPct>30)elotTk.classList.add("hp-blue");else elotTk.classList.add("hp-red")}else{elotTk.classList.add("hp-gold")}
 mp.setView(C,17,{animate:!0,duration:1});
 updateGpsBadge(d.gpsStatus||"live")}catch(e){console.error("Poll:",e);updateGpsBadge("disconnected")}}
 function updateGpsBadge(status){
