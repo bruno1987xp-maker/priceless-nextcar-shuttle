@@ -269,7 +269,7 @@ body.force-tv .info-panel{width:22vw!important;min-width:22vw!important;height:1
   </div>
   <!-- MAP -->
   <div id="map"></div>
-  <div class="map-zoom"><button class="map-zoom-btn" onclick="mp.zoomIn();event.stopPropagation()">+</button><button class="map-zoom-btn" onclick="mp.zoomOut();event.stopPropagation()">−</button></div>
+  <div class="map-zoom"><button class="map-zoom-btn" onclick="mp.zoomIn();window._mapZoom=mp.getZoom();try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){};event.stopPropagation()">+</button><button class="map-zoom-btn" onclick="mp.zoomOut();window._mapZoom=mp.getZoom();try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){};event.stopPropagation()">−</button></div>
   <div class="admin-menu" id="admin-menu">
     <button class="admin-btn" onclick="location.reload()"><span class="admin-btn-icon">🔄</span>REFRESH</button>
     <button class="admin-btn" onclick="adminZoom(1)"><span class="admin-btn-icon">🔍+</span>ZOOM IN</button>
@@ -553,8 +553,10 @@ allInBounds=false; // moving outside bounds — need to zoom out
 }
 }
 });
-if(allInBounds){mp.setView(C,17,{animate:!0,duration:1})}
-else{var bounds=L.latLngBounds(visiblePoints);mp.fitBounds(bounds,{animate:!0,duration:1,padding:[30,30]})}
+if(!window._mapZoom)try{window._mapZoom=parseInt(localStorage.getItem("mapZoom"))||0}catch(e){window._mapZoom=0}
+var useZoom=window._mapZoom||17;
+if(allInBounds){mp.setView(C,useZoom,{animate:!0,duration:1})}
+else{var bounds=L.latLngBounds(visiblePoints);mp.fitBounds(bounds,{animate:!0,duration:1,padding:[30,30],maxZoom:useZoom})}
 updateGpsBadge(d.gpsStatus||"live")}catch(e){console.error("Poll:",e);updateGpsBadge("disconnected")}}
 function updateGpsBadge(status){
 var badge=document.getElementById("gps-badge"),label=document.getElementById("gps-label"),bar=document.getElementById("gps-reconnect");
