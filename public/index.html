@@ -150,6 +150,14 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .msg-delete:hover{color:#EF4444}
 .night-mode .layout-wrapper{filter:brightness(0.4)}
 
+/* Map Zoom +/- */
+.map-zoom{position:absolute;bottom:60px;left:10px;z-index:600;display:flex;flex-direction:column;gap:2px;opacity:0.25;transition:opacity .3s}
+.map-zoom:hover{opacity:0.8}
+.map-zoom-btn{width:26px;height:26px;background:rgba(10,14,26,0.7);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Inter',sans-serif;line-height:1}
+.map-zoom-btn:first-child{border-radius:4px 4px 0 0}
+.map-zoom-btn:last-child{border-radius:0 0 4px 4px}
+.map-zoom-btn:active{background:rgba(59,130,246,0.4)}
+
 /* Admin Menu */
 .admin-menu{display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;background:rgba(10,14,26,0.92);border:1px solid rgba(59,130,246,0.3);border-radius:12px;padding:12px;backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,0.6)}
 .admin-menu.visible{display:flex;gap:8px;animation:menuIn .2s ease}
@@ -261,6 +269,7 @@ body.force-tv .info-panel{width:22vw!important;min-width:22vw!important;height:1
   </div>
   <!-- MAP -->
   <div id="map"></div>
+  <div class="map-zoom"><button class="map-zoom-btn" onclick="mp.zoomIn();event.stopPropagation()">+</button><button class="map-zoom-btn" onclick="mp.zoomOut();event.stopPropagation()">−</button></div>
   <div class="admin-menu" id="admin-menu">
     <button class="admin-btn" onclick="location.reload()"><span class="admin-btn-icon">🔄</span>REFRESH</button>
     <button class="admin-btn" onclick="adminZoom(1)"><span class="admin-btn-icon">🔍+</span>ZOOM IN</button>
