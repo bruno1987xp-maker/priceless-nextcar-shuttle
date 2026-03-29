@@ -569,6 +569,7 @@ async function tokenWatchdog() {
   }
 }
 
+let _polling = false; // prevent concurrent polls
 async function bouncieGet(endpoint, params = {}) {
   const token = await getAccessToken();
   if (!token) { gpsStatus = "disconnected"; return null; }
