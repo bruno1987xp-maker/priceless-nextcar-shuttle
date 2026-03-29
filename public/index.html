@@ -151,11 +151,9 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .night-mode .layout-wrapper{filter:brightness(0.4)}
 
 /* Map Zoom +/- */
-.map-zoom{position:absolute;bottom:60px;left:10px;z-index:600;display:flex;flex-direction:column;gap:2px;opacity:0.25;transition:opacity .3s}
-.map-zoom:hover{opacity:0.8}
-.map-zoom-btn{width:26px;height:26px;background:rgba(10,14,26,0.7);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Inter',sans-serif;line-height:1}
-.map-zoom-btn:first-child{border-radius:4px 4px 0 0}
-.map-zoom-btn:last-child{border-radius:0 0 4px 4px}
+.map-zoom{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:600;display:flex;gap:8px;opacity:0.15;transition:opacity .3s}
+.map-zoom:hover{opacity:0.7}
+.map-zoom-btn{width:32px;height:32px;background:rgba(10,14,26,0.6);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Inter',sans-serif;line-height:1;border-radius:6px}
 .map-zoom-btn:active{background:rgba(59,130,246,0.4)}
 
 /* Admin Menu */
