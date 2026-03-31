@@ -322,7 +322,7 @@ body.force-tv .info-panel{width:22vw!important;min-width:22vw!important;height:1
 </div>
 <script>
 var O=[33.9479,-118.384],X=[33.9496,-118.3896],C=[(O[0]+X[0])/2,(O[1]+X[1])/2];
-var mp=L.map("map",{center:C,zoom:17,zoomControl:!1,attributionControl:!1,dragging:!1,scrollWheelZoom:!1,doubleClickZoom:!1,touchZoom:!1});
+var mp=L.map("map",{center:C,zoom:15,zoomControl:!1,attributionControl:!1,dragging:!1,scrollWheelZoom:!1,doubleClickZoom:!1,touchZoom:!1});
 var satLayer=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19});
 var lblLayer=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png",{maxZoom:19,opacity:.6});
 setTimeout(function(){satLayer.addTo(mp);lblLayer.addTo(mp)},100);
@@ -569,7 +569,7 @@ allInBounds=false; // moving outside bounds — need to zoom out
 }
 });
 if(!window._mapZoom)try{window._mapZoom=parseInt(localStorage.getItem("mapZoom"))||0}catch(e){window._mapZoom=0}
-var useZoom=window._mapZoom||17;
+var useZoom=window._mapZoom||15;
 if(allInBounds){if(!window._userZoomLocked)mp.setView(C,useZoom,{animate:!0,duration:1})}
 else{var bounds=L.latLngBounds(visiblePoints);mp.fitBounds(bounds,{animate:!0,duration:1,padding:[30,30],maxZoom:useZoom})}
 updateGpsBadge(d.gpsStatus||"live")}catch(e){console.error("Poll:",e);updateGpsBadge("disconnected")}}
