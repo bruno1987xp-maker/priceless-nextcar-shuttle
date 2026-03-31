@@ -151,7 +151,7 @@ body{font-family:'Inter',sans-serif;background:#000;color:var(--text);overflow:a
 .night-mode .layout-wrapper{filter:brightness(0.4)}
 
 /* Map Zoom +/- */
-.map-zoom{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:600;display:flex;gap:6px;opacity:1}
+.map-zoom{position:absolute;bottom:60px;right:12px;z-index:600;display:flex;flex-direction:column;gap:6px;opacity:1}
 .map-zoom-btn{padding:3px 10px;background:rgba(10,14,26,0.9);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:'Inter',sans-serif;border-radius:6px}
 .map-zoom-btn:active{background:rgba(59,130,246,0.4)}
 
@@ -266,7 +266,6 @@ body.force-tv .info-panel{width:22vw!important;min-width:22vw!important;height:1
   </div>
   <!-- MAP -->
   <div id="map"></div>
-  <div class="map-zoom"><button class="map-zoom-btn" onclick="mp.zoomIn();setTimeout(function(){window._mapZoom=mp.getZoom();window._userZoomLocked=true;try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){}},300);event.stopPropagation()">+</button><button class="map-zoom-btn" onclick="mp.zoomOut();setTimeout(function(){window._mapZoom=mp.getZoom();window._userZoomLocked=true;try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){}},300);event.stopPropagation()">−</button></div>
   <div class="admin-menu" id="admin-menu">
     <button class="admin-btn" onclick="location.reload()"><span class="admin-btn-icon">🔄</span>REFRESH</button>
     <button class="admin-btn" onclick="mp.zoomIn();setTimeout(function(){window._mapZoom=mp.getZoom();window._userZoomLocked=true;try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){}},300)"><span class="admin-btn-icon">🔍+</span>MAP IN</button>
