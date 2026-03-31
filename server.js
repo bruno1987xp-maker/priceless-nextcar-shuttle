@@ -605,6 +605,7 @@ function calcDistance(p1, p2) {
 }
 
 // ─── Poll & Learn ───
+let _polling = false;
 async function pollLocations() {
   if (_polling) return;
   _polling = true;
