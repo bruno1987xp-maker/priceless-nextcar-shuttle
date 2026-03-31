@@ -760,6 +760,8 @@ app.get("/api/shuttles", (req, res) => {
         && age < GPS_STALE_MS
         && Math.min(parseFloat(s.distToOffice), parseFloat(s.distToLax)) <= MAX_ROUTE_DIST;
     })
+    // Moving vehicles first so the active shuttle is always "Shuttle 1"
+    .sort((a, b) => b.speed - a.speed)
     .slice(0, MAX_SHUTTLES);
 
   // Trip averages for display
