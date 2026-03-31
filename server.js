@@ -20,7 +20,8 @@ const BOUNCIE_AUTH = "https://auth.bouncie.com/oauth/token";
 const CLIENT_ID = process.env.BOUNCIE_CLIENT_ID;
 const CLIENT_SECRET = process.env.BOUNCIE_CLIENT_SECRET;
 const _envRedirect = process.env.BOUNCIE_REDIRECT_URI;
-const REDIRECT_URI = (_envRedirect && !_envRedirect.includes("localhost")) ? _envRedirect : "https://priceless-nextcar-shuttle.onrender.com/callback";
+const REDIRECT_URI = (_envRedirect && !_envRedirect.includes("localhost")) ? _envRedirect : `${process.env.RAILWAY_PUBLIC_DOMAIN ? "https://"+process.env.RAILWAY_PUBLIC_DOMAIN : "https://priceless-nextcar-shuttle.onrender.com"}/callback`;
+const ALLOWED_IMEIS = process.env.SHUTTLE_IMEIS ? process.env.SHUTTLE_IMEIS.split(",").map(s=>s.trim()) : [];
 const AUTH_CODE = process.env.BOUNCIE_AUTH_CODE;
 const POLL_INTERVAL = Math.max(10, parseInt(process.env.POLL_INTERVAL) || 10) * 1000;
 const AUTH_BLOB_URL = "https://jsonblob.com/api/jsonBlob/019d35d3-bb7a-79b4-8cf9-c0bb97257d50";
@@ -750,18 +751,18 @@ app.get("/api/shuttles", (req, res) => {
     });
   }
   const allShuttles = positions.map((pos, i) => buildShuttleData(pos, i));
-  // Only show shuttles with engine running, fresh GPS (connected), and within route distance
-  const MAX_ROUTE_DIST = 2.0; // miles
+  const MAX_ROUTE_DIST = 2.0;
   const MAX_SHUTTLES = parseInt(process.env.MAX_SHUTTLES) || 1;
-  const GPS_STALE_MS = 5 * 60 * 1000; // 5 minutes — disconnected Bouncie won't update
+  const GPS_STALE_MS = 5 * 60 * 1000;
   const shuttles = allShuttles
     .filter(s => {
       const age = Date.now() - new Date(s.timestamp).getTime();
-      return s.isRunning
+      const imeiAllowed = ALLOWED_IMEIS.length === 0 || ALLOWED_IMEIS.some(id => s.imei.endsWith(id));
+      return imeiAllowed
+        && s.isRunning
         && age < GPS_STALE_MS
         && Math.min(parseFloat(s.distToOffice), parseFloat(s.distToLax)) <= MAX_ROUTE_DIST;
     })
-    // Moving vehicles first so the active shuttle is always "Shuttle 1"
     .sort((a, b) => b.speed - a.speed)
     .slice(0, MAX_SHUTTLES);
 
