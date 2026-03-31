@@ -569,7 +569,6 @@ async function tokenWatchdog() {
   }
 }
 
-let _polling = false; // prevent concurrent polls
 async function bouncieGet(endpoint, params = {}) {
   const token = await getAccessToken();
   if (!token) { gpsStatus = "disconnected"; return null; }
@@ -750,9 +749,18 @@ app.get("/api/shuttles", (req, res) => {
     });
   }
   const allShuttles = positions.map((pos, i) => buildShuttleData(pos, i));
-  // Only show shuttles with engine running AND within 1 mile of the route
+  // Only show shuttles with engine running, fresh GPS (connected), and within route distance
   const MAX_ROUTE_DIST = 2.0; // miles
-  const shuttles = allShuttles.filter(s => s.isRunning && Math.min(parseFloat(s.distToOffice), parseFloat(s.distToLax)) <= MAX_ROUTE_DIST);
+  const MAX_SHUTTLES = parseInt(process.env.MAX_SHUTTLES) || 1;
+  const GPS_STALE_MS = 5 * 60 * 1000; // 5 minutes — disconnected Bouncie won't update
+  const shuttles = allShuttles
+    .filter(s => {
+      const age = Date.now() - new Date(s.timestamp).getTime();
+      return s.isRunning
+        && age < GPS_STALE_MS
+        && Math.min(parseFloat(s.distToOffice), parseFloat(s.distToLax)) <= MAX_ROUTE_DIST;
+    })
+    .slice(0, MAX_SHUTTLES);
 
   // Trip averages for display
   const toOfficeRecent = getRecentAvg.get("to-office");
