@@ -45,7 +45,11 @@ let consecutiveAuthFailures = 0;
 // ═══════════════════════════════════════════════════
 //  DATABASE — Trip Logger & Learning Engine
 // ═══════════════════════════════════════════════════
-const db = new Database(path.join(__dirname, "shuttle-brain.db"));
+// Use /data volume on Railway (persistent), fallback to local for dev
+const DB_PATH = process.env.RAILWAY_VOLUME_MOUNT_PATH
+  ? path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, "shuttle-brain.db")
+  : path.join(__dirname, "shuttle-brain.db");
+const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
 
 // Create tables
