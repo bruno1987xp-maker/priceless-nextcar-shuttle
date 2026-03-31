@@ -247,7 +247,7 @@ body.force-tv .info-panel{width:22vw!important;min-width:22vw!important;height:1
 </style>
 </head>
 <body>
-<div class="waiting-overlay" id="waiting"><div class="waiting-spinner"></div><div class="waiting-text">Connecting to shuttle GPS...</div><div class="waiting-sub">Signal will appear when the shuttle starts moving</div></div>
+<div class="waiting-overlay hidden" id="waiting"><div class="waiting-spinner"></div><div class="waiting-text">Connecting to shuttle GPS...</div><div class="waiting-sub">Signal will appear when the shuttle starts moving</div></div>
 <div class="layout-wrapper"><div class="layout">
 <div class="map-side">
   <!-- TOP TICKER -->
@@ -422,27 +422,43 @@ else{releaseWake();btn.querySelector(".admin-btn-icon").textContent="🌙";label
 // Auto-enable on load if previously set
 if(_wakeEnabled){requestWake();document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible"&&_wakeEnabled)requestWake()})}
 
-// Admin menu — click map to show, auto-hide after 5s
+// Admin menu — click map to show, PIN-protected, auto-hide after 5s
 var adminTimer=null;
-mp.on("click",function(){
+var _adminUnlocked=false;
+var ADMIN_PIN="7368"; // change this to your preferred 4-digit PIN
+function showAdminMenu(){
 var menu=document.getElementById("admin-menu");
 if(menu.classList.contains("visible")){menu.classList.remove("visible");clearTimeout(adminTimer);return}
+if(!_adminUnlocked){
+var pin=prompt("Admin PIN:");
+if(pin!==ADMIN_PIN){if(pin!==null)alert("Incorrect PIN");return}
+_adminUnlocked=true;setTimeout(function(){_adminUnlocked=false},10*60*1000); // lock after 10min
+}
 menu.classList.add("visible");
 clearTimeout(adminTimer);
 adminTimer=setTimeout(function(){menu.classList.remove("visible")},5000);
-});
+}
+mp.on("click",function(){showAdminMenu()});
 document.getElementById("admin-menu").addEventListener("click",function(e){
 e.stopPropagation();clearTimeout(adminTimer);
 adminTimer=setTimeout(function(){document.getElementById("admin-menu").classList.remove("visible")},5000);
 });
-var COLORS=["#3B82F6","#10B981","#F59E0B"];var NAMES=["Shuttle 1","Shuttle 2","Shuttle 3"];
+var COLORS=["#3B82F6","#10B981","#F59E0B"];
+// Pin colors to vehicle ID (vid) so color never changes when sort order shifts
+var _vidColors={};var _vidNames={};var _colorIdx=0;
+function getVidColor(vid){if(!_vidColors[vid]){_vidColors[vid]=COLORS[_colorIdx%COLORS.length];_colorIdx++}return _vidColors[vid]}
+function getVidName(s){if(!_vidNames[s.vid]&&s.name)_vidNames[s.vid]=s.name;return _vidNames[s.vid]||s.name||("Shuttle "+s.vid)}
 function mkVanIcon(color){return L.divIcon({className:"shuttle-marker",html:"<div class='van-marker'><div class='van-ping' style='border-color:"+color+"'></div><div class='van-ping2' style='border-color:"+color+"'></div><div class='van-body'>\uD83D\uDE90</div><div class='van-arrow'></div></div>",iconSize:[70,76],iconAnchor:[35,38]})}
 var sMkrs={},trails={},tLines={};
 function uc(){document.getElementById("clock").textContent=new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:!0})}setInterval(uc,1e3);uc();
 var D={"to-office":{t:"Arriving",c:"status-running",f:"E-LOT",o:"OFFICE"},"to-lax":{t:"En Route to E-Lot",c:"status-running",f:"OFFICE",o:"E-LOT"},"at-office":{t:"Boarding at Office",c:"status-parked",f:"OFFICE",o:"E-LOT"},"at-lax":{t:"At E-Lot (Loading)",c:"status-parked",f:"E-LOT",o:"OFFICE"}};
 var PT=12e5,lastDirs={};
 async function poll(){try{var r=await fetch("/api/shuttles");if(!r.ok)return;var d=await r.json();if(!d||!d.shuttles)return;
-if(d.mode==="waiting"||!d.shuttles.length){document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}
+if(d.mode==="waiting"||!d.shuttles.length){
+// Remove any lingering map markers when no shuttles active
+Object.keys(sMkrs).forEach(function(v){mp.removeLayer(sMkrs[v]);delete sMkrs[v]});
+Object.keys(tLines).forEach(function(v){tLines[v].forEach(function(l){mp.removeLayer(l)});delete tLines[v]});
+document.getElementById("waiting").classList.add("hidden");document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active");return}
 document.getElementById("waiting").classList.add("hidden");
 // Standby only after 10min no movement
 var now=Date.now();
@@ -452,43 +468,51 @@ return movedAgo>10*60*1000;
 });
 if(allStandby){document.getElementById("active-content").classList.add("hidden");document.getElementById("parked-panel").classList.add("active")}
 else{document.getElementById("parked-panel").classList.remove("active");document.getElementById("active-content").classList.remove("hidden")}
+// Remove markers for vids no longer in response
+var activeVids=new Set(d.shuttles.map(function(s){return s.vid}));
+Object.keys(sMkrs).forEach(function(v){if(!activeVids.has(v)){mp.removeLayer(sMkrs[v]);delete sMkrs[v];if(tLines[v]){tLines[v].forEach(function(l){mp.removeLayer(l)});delete tLines[v]}}});
 // Build status HTML for panel
 var statusHtml="",bestEta=null,bestShuttle=null;
 d.shuttles.forEach(function(s,i){
-var clr=COLORS[i%3],name=NAMES[i]||("Shuttle "+(i+1)),pos=[s.lat,s.lng];
-// Map markers
-if(!sMkrs[s.imei])sMkrs[s.imei]=L.marker(pos,{icon:mkVanIcon(clr)}).addTo(mp);
-else sMkrs[s.imei].setLatLng(pos);
+var clr=getVidColor(s.vid),name=getVidName(s),pos=[s.lat,s.lng];
+// Map markers — keyed by vid (stable)
+if(!sMkrs[s.vid])sMkrs[s.vid]=L.marker(pos,{icon:mkVanIcon(clr)}).addTo(mp);
+else sMkrs[s.vid].setLatLng(pos);
 // Trails per shuttle
-if(!trails[s.imei])trails[s.imei]=[];
-if(s.direction!==lastDirs[s.imei]){trails[s.imei]=[pos]}else{trails[s.imei].push(pos)}
-if(trails[s.imei].length>200)trails[s.imei]=trails[s.imei].slice(-200);
-lastDirs[s.imei]=s.direction;
-if(tLines[s.imei])tLines[s.imei].forEach(function(l){mp.removeLayer(l)});
-tLines[s.imei]=[];
-if(trails[s.imei].length>1){
-tLines[s.imei].push(L.polyline(trails[s.imei],{color:clr,weight:10,opacity:.1,lineCap:"round",lineJoin:"round"}).addTo(mp));
-tLines[s.imei].push(L.polyline(trails[s.imei],{color:clr,weight:3,opacity:.5,lineCap:"round",lineJoin:"round"}).addTo(mp));
+if(!trails[s.vid])trails[s.vid]=[];
+if(s.direction!==lastDirs[s.vid]){trails[s.vid]=[pos]}else{trails[s.vid].push(pos)}
+if(trails[s.vid].length>200)trails[s.vid]=trails[s.vid].slice(-200);
+lastDirs[s.vid]=s.direction;
+if(tLines[s.vid])tLines[s.vid].forEach(function(l){mp.removeLayer(l)});
+tLines[s.vid]=[];
+if(trails[s.vid].length>1){
+tLines[s.vid].push(L.polyline(trails[s.vid],{color:clr,weight:10,opacity:.1,lineCap:"round",lineJoin:"round"}).addTo(mp));
+tLines[s.vid].push(L.polyline(trails[s.vid],{color:clr,weight:3,opacity:.5,lineCap:"round",lineJoin:"round"}).addTo(mp));
 }
 // Find best ETA (closest arriving shuttle)
 var isMoving=s.direction==="to-office"||s.direction==="to-lax";
 if(isMoving&&s.prediction&&(!bestEta||s.prediction.eta<bestEta)){bestEta=s.prediction.eta;bestShuttle={s:s,i:i,name:name}}
 });
 // Update panel status text (no ETA minutes)
-var focus=bestShuttle?bestShuttle:{s:d.shuttles[0],i:0,name:NAMES[0]};
+var focus=bestShuttle?bestShuttle:{s:d.shuttles[0],i:0,name:getVidName(d.shuttles[0])};
 var lines=[];
-// Per-shuttle forward-only progress
+// Per-shuttle forward-only progress (reset to 0 when van arrives)
 if(!window._barMem)window._barMem={};
 d.shuttles.forEach(function(sh){
-if(!window._barMem[sh.imei])window._barMem[sh.imei]={dir:sh.direction,pct:0};
-var mem=window._barMem[sh.imei];
-if(sh.direction!==mem.dir){mem.pct=0;mem.dir=sh.direction}
-mem.pct=Math.max(mem.pct,sh.progress||0);
+if(!window._barMem[sh.vid])window._barMem[sh.vid]={dir:sh.direction,pct:0};
+var mem=window._barMem[sh.vid];
+if(sh.direction!==mem.dir){
+// Reset bar to 0 on direction change (including arrival)
+mem.pct=0;mem.dir=sh.direction;
+}
+// Once arrived (at-office or at-lax), lock bar at 100 briefly then reset
+if(sh.direction==="at-office"||sh.direction==="at-lax"){mem.pct=100}
+else{mem.pct=Math.max(mem.pct,sh.progress||0)}
 });
 // Count moving shuttles per direction
 var toOfficeSh=[],toElotSh=[];
 d.shuttles.forEach(function(sh){
-var pct=window._barMem[sh.imei]?window._barMem[sh.imei].pct:(sh.progress||0);
+var pct=window._barMem[sh.vid]?window._barMem[sh.vid].pct:(sh.progress||0);
 if(sh.direction==="to-office")toOfficeSh.push(pct);
 if(sh.direction==="to-lax")toElotSh.push(pct);
 });
@@ -537,8 +561,8 @@ visiblePoints.push(pt);
 if(sh.lat<ROUTE_BOUNDS[0][0]||sh.lat>ROUTE_BOUNDS[1][0]||sh.lng<ROUTE_BOUNDS[0][1]||sh.lng>ROUTE_BOUNDS[1][1]){
 // Outside normal route — but if stopped (speed=0), hide it (gas station)
 if(sh.speed===0&&sh.direction!=="to-office"&&sh.direction!=="to-lax"){
-if(sMkrs[sh.imei]){mp.removeLayer(sMkrs[sh.imei]);delete sMkrs[sh.imei]}
-if(tLines[sh.imei]){tLines[sh.imei].forEach(function(l){mp.removeLayer(l)});delete tLines[sh.imei]}
+if(sMkrs[sh.vid]){mp.removeLayer(sMkrs[sh.vid]);delete sMkrs[sh.vid]}
+if(tLines[sh.vid]){tLines[sh.vid].forEach(function(l){mp.removeLayer(l)});delete tLines[sh.vid]}
 }else{
 allInBounds=false; // moving outside bounds — need to zoom out
 }

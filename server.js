@@ -11,7 +11,18 @@ const path = require("path");
 const Database = require("better-sqlite3");
 
 const app = express();
-app.use(cors());
+// Restrict CORS to own Railway domain (and localhost for dev)
+const _allowedOrigins = [
+  process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null,
+  "http://localhost:3488",
+].filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow same-origin requests (no Origin header) and whitelisted origins
+    if (!origin || _allowedOrigins.includes(origin)) return cb(null, true);
+    cb(null, false); // silently reject cross-origin requests
+  }
+}));
 app.use(express.static(path.join(__dirname, "public")));
 
 // ─── Bouncie API Config ───
@@ -543,19 +554,25 @@ async function tokenWatchdog() {
   }
 }
 
+function fetchWithTimeout(url, options, ms = 12000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { ...options, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+}
+
 async function bouncieGet(endpoint, params = {}) {
   const token = await getAccessToken();
   if (!token) { gpsStatus = "disconnected"; return null; }
   const url = new URL(`${BOUNCIE_API}${endpoint}`);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   try {
-    const res = await fetch(url.toString(), { headers: { Authorization: token }, timeout: 10000 });
+    const res = await fetchWithTimeout(url.toString(), { headers: { Authorization: token } });
     if (res.status === 401) {
       console.log("[API] 401 — token rejected, clearing and retrying...");
       accessToken = null; tokenExpiry = 0;
       const newToken = await getAccessToken();
       if (!newToken) return null;
-      const retry = await fetch(url.toString(), { headers: { Authorization: newToken }, timeout: 10000 });
+      const retry = await fetchWithTimeout(url.toString(), { headers: { Authorization: newToken } });
       if (!retry.ok) return null;
       return retry.json();
     }
@@ -580,9 +597,18 @@ function calcDistance(p1, p2) {
 
 // ─── Poll & Learn ───
 let _polling = false;
+let _pollStartedAt = 0;
+const POLL_HUNG_MS = 30 * 1000; // if poll takes >30s, force-reset
+
 async function pollLocations() {
+  // Hung poll recovery: if previous poll has been running >30s, force-reset
+  if (_polling && Date.now() - _pollStartedAt > POLL_HUNG_MS) {
+    console.error("[Poll] Hung poll detected — force-resetting _polling flag");
+    _polling = false;
+  }
   if (_polling) return;
   _polling = true;
+  _pollStartedAt = Date.now();
   try {
     const data = await bouncieGet("/vehicles");
     if (!data || !Array.isArray(data)) return;
@@ -699,10 +725,14 @@ function buildShuttleData(pos, index) {
   const relevantDist = direction.includes("office") ? distToOffice : distToLax;
   const prediction = predictETA(direction, progress, relevantDist, pos.speed);
 
+  // Use stable short ID (last 4 of IMEI) for frontend — never expose full IMEI
+  const vid = pos.imei.slice(-4);
+
   return {
     id: index,
+    vid,               // stable vehicle ID (IMEI last-4), safe to expose
     name: pos.nickName,
-    imei: pos.imei,
+    // imei intentionally omitted from response
     lat: pos.lat,
     lng: pos.lng,
     speed: Math.round(pos.speed || 0),
@@ -722,6 +752,15 @@ function buildShuttleData(pos, index) {
 // ═══════════════════════════════════════════════════
 //  API ENDPOINTS
 // ═══════════════════════════════════════════════════
+
+// Admin key middleware — protects destructive/sensitive endpoints
+const ADMIN_KEY = process.env.ADMIN_KEY || null;
+function requireAdmin(req, res, next) {
+  if (!ADMIN_KEY) return next(); // if not configured, allow (dev mode)
+  const key = req.query.key || req.headers["x-admin-key"];
+  if (key === ADMIN_KEY) return next();
+  res.status(403).json({ error: "Forbidden" });
+}
 app.get("/api/shuttles", (req, res) => {
   // Show all vehicles — let frontend decide standby display
   const positions = Object.values(latestPositions);
@@ -819,25 +858,27 @@ app.get("/api/brain", (req, res) => {
 
 app.get("/api/status", (req, res) => {
   const stats = getStats.get();
+  const key = req.query.key || req.headers["x-admin-key"];
+  const isAdmin = !ADMIN_KEY || key === ADMIN_KEY;
   res.json({
-    configured: !!(CLIENT_ID && CLIENT_SECRET && AUTH_CODE),
     connected: !!accessToken,
     gpsStatus,
     lastGpsFix: lastGpsFix ? lastGpsFix.toISOString() : null,
-    tokenExpiresIn: accessToken ? Math.max(0, Math.round((tokenExpiry - Date.now()) / 60000)) : 0,
-    lastAuthError,
-    consecutiveAuthFailures,
     vehicleCount: vehicles.length,
-    pollInterval: POLL_INTERVAL / 1000,
-    brain: {
-      totalTrips: stats.total_trips,
-      learned: stats.total_trips >= 3,
-    },
+    brain: { totalTrips: stats.total_trips, learned: stats.total_trips >= 3 },
+    // Diagnostic fields only visible with admin key
+    ...(isAdmin ? {
+      configured: !!(CLIENT_ID && CLIENT_SECRET && AUTH_CODE),
+      tokenExpiresIn: accessToken ? Math.max(0, Math.round((tokenExpiry - Date.now()) / 60000)) : 0,
+      lastAuthError,
+      consecutiveAuthFailures,
+      pollInterval: POLL_INTERVAL / 1000,
+    } : {}),
   });
 });
 
 // ─── One-tap reconnect: redirects to Bouncie OAuth ───
-app.get("/reauth", (req, res) => {
+app.get("/reauth", requireAdmin, (req, res) => {
   const authUrl = `https://auth.bouncie.com/dialog/authorize?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=vehicle+location+tripData`;
   console.log("[Auth] Reauth requested, redirecting to Bouncie OAuth...");
   res.redirect(authUrl);
@@ -882,6 +923,7 @@ app.get("/callback", async (req, res) => {
 });
 
 // Force GPS reconnect — clears token, retries all auth sources
+// Note: /reauth (OAuth flow) is admin-protected; this is safe to leave public
 app.get("/api/fix-gps", async (req, res) => {
   console.log("[Fix] Manual GPS fix triggered");
   accessToken = null; tokenExpiry = 0;
@@ -896,6 +938,35 @@ app.get("/api/fix-gps", async (req, res) => {
 });
 
 
+// ─── Health check — returns 503 if GPS has been disconnected >15min ───
+app.get("/health", (req, res) => {
+  const gpsDead = gpsStatus === "disconnected" && lastGpsFix &&
+    Date.now() - lastGpsFix.getTime() > 15 * 60 * 1000;
+  const neverConnected = gpsStatus === "disconnected" && !lastGpsFix &&
+    Date.now() - _serverStarted > 5 * 60 * 1000;
+  if (gpsDead || neverConnected) {
+    return res.status(503).json({ status: "unhealthy", gpsStatus, lastGpsFix });
+  }
+  res.json({ status: "ok", gpsStatus, uptime: Math.round(process.uptime()) });
+});
+const _serverStarted = Date.now();
+
+// ─── DB Maintenance — prune old breadcrumbs + clean orphaned trips ───
+function runDbMaintenance() {
+  try {
+    // Delete breadcrumbs older than 90 days
+    const pruned = db.prepare(`DELETE FROM breadcrumbs WHERE recorded_at < datetime('now', '-90 days')`).run();
+    if (pruned.changes > 0) console.log(`[DB] Pruned ${pruned.changes} old breadcrumbs`);
+
+    // Mark orphaned active trips (started >2h ago, never ended) as abandoned
+    const abandoned = db.prepare(`
+      UPDATE trips SET status = 'abandoned', ended_at = datetime('now')
+      WHERE status = 'active' AND started_at < datetime('now', '-2 hours')
+    `).run();
+    if (abandoned.changes > 0) console.log(`[DB] Marked ${abandoned.changes} orphaned trips as abandoned`);
+  } catch(e) { console.error("[DB] Maintenance error:", e.message); }
+}
+
 // ─── Start ───
 const PORT = process.env.PORT || 3488;
 app.listen(PORT, async () => {
@@ -906,6 +977,9 @@ app.listen(PORT, async () => {
   console.log("  ║   Brain: shuttle-brain.db (auto-learning)        ║");
   console.log("  ╚══════════════════════════════════════════════════╝");
   console.log("");
+
+  // DB maintenance on startup
+  runDbMaintenance();
 
   const stats = getStats.get();
   console.log(`  [Brain] ${stats.total_trips} trips logged so far`);
@@ -918,19 +992,12 @@ app.listen(PORT, async () => {
     await pollLocations();
     setInterval(pollLocations, POLL_INTERVAL);
     setInterval(tokenWatchdog, 5 * 60 * 1000);
+    // DB maintenance daily
+    setInterval(runDbMaintenance, 24 * 60 * 60 * 1000);
     console.log("  [Watchdog] Token watchdog active (checks every 5min)");
   } else {
     console.log("  ⚠  No Bouncie credentials in .env");
   }
-
-  // Keep-alive: ping self every 10min to prevent Render free plan spindown
-  const RENDER_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
-  setInterval(() => {
-    fetch(`${RENDER_URL}/api/status`).then(() => {
-      console.log("[Keep-alive] Ping OK");
-    }).catch(() => {});
-  }, 10 * 60 * 1000);
-  console.log("  [Keep-alive] Self-ping active (every 10min)");
   console.log("");
 });
 
