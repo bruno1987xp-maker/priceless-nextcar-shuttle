@@ -266,10 +266,11 @@ body.force-tv .info-panel{width:22vw!important;min-width:22vw!important;height:1
   </div>
   <!-- MAP -->
   <div id="map"></div>
+  <div class="map-zoom"><button class="map-zoom-btn" onclick="mp.zoomIn();setTimeout(function(){window._mapZoom=mp.getZoom();window._userZoomLocked=true;try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){}},300);event.stopPropagation()">+</button><button class="map-zoom-btn" onclick="mp.zoomOut();setTimeout(function(){window._mapZoom=mp.getZoom();window._userZoomLocked=true;try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){}},300);event.stopPropagation()">−</button></div>
   <div class="admin-menu" id="admin-menu">
     <button class="admin-btn" onclick="location.reload()"><span class="admin-btn-icon">🔄</span>REFRESH</button>
-    <button class="admin-btn" onclick="mp.zoomIn();window._mapZoom=mp.getZoom();try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){}"><span class="admin-btn-icon">🔍+</span>MAP IN</button>
-    <button class="admin-btn" onclick="mp.zoomOut();window._mapZoom=mp.getZoom();try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){}"><span class="admin-btn-icon">🔍−</span>MAP OUT</button>
+    <button class="admin-btn" onclick="mp.zoomIn();setTimeout(function(){window._mapZoom=mp.getZoom();window._userZoomLocked=true;try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){}},300)"><span class="admin-btn-icon">🔍+</span>MAP IN</button>
+    <button class="admin-btn" onclick="mp.zoomOut();setTimeout(function(){window._mapZoom=mp.getZoom();window._userZoomLocked=true;try{localStorage.setItem('mapZoom',window._mapZoom)}catch(e){}},300)"><span class="admin-btn-icon">🔍−</span>MAP OUT</button>
     <button class="admin-btn" onclick="toggleFullscreen(this)"><span class="admin-btn-icon" id="fs-icon">⛶</span><span id="fs-label">FULL</span></button>
     <button class="admin-btn" onclick="toggleLayout(this)"><span class="admin-btn-icon" id="layout-icon">📱</span><span id="layout-label">MOBILE</span></button>
     <button class="admin-btn" onclick="adminGpsFix(this)"><span class="admin-btn-icon">📡</span>GPS FIX</button>
@@ -299,7 +300,7 @@ body.force-tv .info-panel{width:22vw!important;min-width:22vw!important;height:1
   <div class="panel-live-row"><div class="live-pill"><div class="live-dot"></div><span class="live-text">LIVE</span></div><div class="gps-badge gps-live" id="gps-badge" title="GPS Status"><div class="gps-dot"></div><span id="gps-label">GPS</span></div><div class="panel-clock" id="clock">--:--</div></div>
   <div class="gps-reconnect-bar" id="gps-reconnect"><span style="font-size:8px;color:#FCA5A5;margin-right:8px">GPS SIGNAL LOST</span><button class="gps-reconnect-btn" onclick="window.open('/reauth','_blank')">RECONNECT</button></div>
   <div class="active-content" id="active-content">
-    <div class="status-section"><div class="status-label">SHUTTLE STATUS</div><div class="status-direction status-running" id="status-dir"><span class="status-text" id="status-text">CONNECTING...</span></div></div>
+
     <div class="hp-section" id="hp-to-office"><div class="hp-labels"><span class="hp-endpoint">E-LOT</span><span class="hp-endpoint">OFFICE</span></div><div class="hp-track hp-blue" id="hp-track-office"><div class="hp-fill" id="hp-fill-office" style="width:0%"></div></div></div>
     <div class="hp-section" id="hp-to-elot"><div class="hp-labels"><span class="hp-endpoint">OFFICE</span><span class="hp-endpoint">E-LOT</span></div><div class="hp-track hp-blue" id="hp-track-elot"><div class="hp-fill" id="hp-fill-elot" style="width:0%"></div></div></div>
     <div class="info-carousel"><div class="carousel-slide" id="carousel-slide"></div></div>
@@ -476,11 +477,7 @@ if(isMoving&&s.prediction&&(!bestEta||s.prediction.eta<bestEta)){bestEta=s.predi
 });
 // Update panel status text (no ETA minutes)
 var focus=bestShuttle?bestShuttle:{s:d.shuttles[0],i:0,name:NAMES[0]};
-var s=focus.s,di=D[s.direction]||D["to-office"];
-document.getElementById("status-dir").className="status-direction "+di.c;
 var lines=[];
-d.shuttles.forEach(function(sh,i){var nm=NAMES[i]||("Shuttle "+(i+1));var dd=D[sh.direction]||D["to-office"];lines.push(nm+" \u2192 "+dd.t)});
-document.getElementById("status-text").innerHTML=lines.join("<br>");
 // Per-shuttle forward-only progress
 if(!window._barMem)window._barMem={};
 d.shuttles.forEach(function(sh){
@@ -550,7 +547,7 @@ allInBounds=false; // moving outside bounds — need to zoom out
 });
 if(!window._mapZoom)try{window._mapZoom=parseInt(localStorage.getItem("mapZoom"))||0}catch(e){window._mapZoom=0}
 var useZoom=window._mapZoom||17;
-if(allInBounds){mp.setView(C,useZoom,{animate:!0,duration:1})}
+if(allInBounds){if(!window._userZoomLocked)mp.setView(C,useZoom,{animate:!0,duration:1})}
 else{var bounds=L.latLngBounds(visiblePoints);mp.fitBounds(bounds,{animate:!0,duration:1,padding:[30,30],maxZoom:useZoom})}
 updateGpsBadge(d.gpsStatus||"live")}catch(e){console.error("Poll:",e);updateGpsBadge("disconnected")}}
 function updateGpsBadge(status){
