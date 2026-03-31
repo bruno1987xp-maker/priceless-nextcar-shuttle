@@ -24,7 +24,6 @@ const REDIRECT_URI = (_envRedirect && !_envRedirect.includes("localhost")) ? _en
 const ALLOWED_IMEIS = process.env.SHUTTLE_IMEIS ? process.env.SHUTTLE_IMEIS.split(",").map(s=>s.trim()) : [];
 const AUTH_CODE = process.env.BOUNCIE_AUTH_CODE;
 const POLL_INTERVAL = Math.max(10, parseInt(process.env.POLL_INTERVAL) || 10) * 1000;
-const AUTH_BLOB_URL = "https://jsonblob.com/api/jsonBlob/019d35d3-bb7a-79b4-8cf9-c0bb97257d50";
 
 // ─── Fixed Locations ───
 const OFFICE = { lat: 33.9479, lng: -118.3840 }; // 5835 W 98th St (Priceless/NextCar office)
@@ -141,31 +140,6 @@ function getStoredAuthCode() {
   return AUTH_CODE;
 }
 
-// ─── External auth persistence (survives Render restarts) ───
-async function saveAuthExternal(code) {
-  try {
-    const res = await fetch(AUTH_BLOB_URL, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ authCode: code, updatedAt: new Date().toISOString() }),
-    });
-    if (res.ok) console.log("[Auth] Saved auth code to external store");
-    else console.error("[Auth] External save returned " + res.status);
-  } catch(e) { console.error("[Auth] External save failed:", e.message); }
-}
-
-async function loadAuthExternal() {
-  try {
-    const res = await fetch(AUTH_BLOB_URL);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data && data.authCode && data.authCode !== "pending") {
-      console.log("[Auth] Loaded auth code from external store (saved " + data.updatedAt + ")");
-      return data.authCode;
-    }
-  } catch(e) { console.error("[Auth] External load failed:", e.message); }
-  return null;
-}
 
 // Prepared statements for speed
 const insertTrip = db.prepare(`
@@ -506,7 +480,6 @@ async function exchangeAuthCode(code, label) {
   accessToken = data.access_token;
   tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
   saveToken(accessToken, tokenExpiry, code);
-  saveAuthExternal(code); // persist externally — survives Render restarts
   consecutiveAuthFailures = 0;
   lastAuthError = null;
   console.log(`[Auth] Token obtained (${label}), expires in ${Math.round((tokenExpiry - Date.now()) / 60000)}min`);
@@ -517,16 +490,12 @@ async function getAccessToken() {
   if (accessToken && Date.now() < tokenExpiry) return accessToken;
   if (loadToken()) return accessToken;
 
-  // Try external store first (survives Render restarts)
-  const externalCode = await loadAuthExternal();
-
   const codeSources = [
-    externalCode ? { code: externalCode, label: "external store" } : null,
     { code: getStoredAuthCode(), label: "SQLite/stored" },
     { code: AUTH_CODE, label: "env var" },
-  ].filter(Boolean);
+  ].filter(s => s.code);
   const seen = new Set();
-  const unique = codeSources.filter(s => s.code && !seen.has(s.code) && seen.add(s.code));
+  const unique = codeSources.filter(s => !seen.has(s.code) && seen.add(s.code));
 
   for (const source of unique) {
     try {
@@ -659,6 +628,17 @@ async function pollLocations() {
 
       console.log(`[GPS] ${pos.lat.toFixed(4)},${pos.lng.toFixed(4)} | ${pos.speed}mph | ${shuttle.direction} | ETA: ${shuttle.prediction.eta}min (${shuttle.prediction.source})`);
     }
+
+    // Clean up positions for vehicles no longer reported by Bouncie
+    const activeImeis = new Set(data.map(v => v.imei));
+    for (const imei of Object.keys(latestPositions)) {
+      if (!activeImeis.has(imei)) {
+        delete latestPositions[imei];
+        delete lastMovedAt[imei];
+        delete engineOffAt[imei];
+        console.log(`[GPS] Removed stale position for IMEI ${imei}`);
+      }
+    }
   } catch (e) {
     console.error("[Poll] Error:", e.message);
   } finally {
@@ -755,15 +735,16 @@ app.get("/api/shuttles", (req, res) => {
     });
   }
   const allShuttles = positions.map((pos, i) => buildShuttleData(pos, i));
-  const MAX_ROUTE_DIST = 2.0;
+  const MAX_ROUTE_DIST = parseFloat(process.env.MAX_ROUTE_DIST) || 10.0;
   const MAX_SHUTTLES = parseInt(process.env.MAX_SHUTTLES) || 1;
-  const GPS_STALE_MS = 5 * 60 * 1000;
+  const GPS_STALE_MS = 10 * 60 * 1000; // 10 min — Bouncie can lag
   const shuttles = allShuttles
     .filter(s => {
       const age = Date.now() - new Date(s.timestamp).getTime();
       const imeiAllowed = ALLOWED_IMEIS.length === 0 || ALLOWED_IMEIS.some(id => s.imei.endsWith(id));
+      const isActive = s.isRunning || s.speed > 2; // engine on OR actually moving
       return imeiAllowed
-        && s.isRunning
+        && isActive
         && age < GPS_STALE_MS
         && Math.min(parseFloat(s.distToOffice), parseFloat(s.distToLax)) <= MAX_ROUTE_DIST;
     })
@@ -865,7 +846,7 @@ app.get("/reauth", (req, res) => {
 // OAuth callback — captures fresh auth code and exchanges it immediately
 app.get("/callback", async (req, res) => {
   const code = req.query.code;
-  if (!code) return res.send("No code received");
+  if (!code) return res.send("<h1>Error</h1><p>No auth code received from Bouncie.</p>");
   console.log("[Auth] Received fresh auth code via OAuth callback");
   try {
     const tokenRes = await fetch(BOUNCIE_AUTH, {
@@ -876,30 +857,28 @@ app.get("/callback", async (req, res) => {
         grant_type: "authorization_code", code, redirect_uri: REDIRECT_URI,
       }),
     });
-    const data = await tokenRes.json();
-    if (data.access_token) {
+    const rawText = await tokenRes.text();
+    let data;
+    try { data = JSON.parse(rawText); } catch(e) { data = {}; }
+    if (tokenRes.ok && data.access_token) {
       accessToken = data.access_token;
       tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
       saveToken(accessToken, tokenExpiry, code);
-      saveAuthExternal(code); // persist externally — survives Render restarts
       consecutiveAuthFailures = 0;
       lastAuthError = null;
       gpsStatus = "live";
-      try {
-        const fs = require("fs");
-        const envPath = path.join(__dirname, ".env");
-        let env = fs.readFileSync(envPath, "utf8");
-        env = env.replace(/BOUNCIE_AUTH_CODE=.*/, `BOUNCIE_AUTH_CODE=${code}`);
-        fs.writeFileSync(envPath, env);
-      } catch(e) { /* .env may not be writable on Render */ }
       console.log("[Auth] Token obtained via callback! Starting poll...");
       await fetchVehicles();
       await pollLocations();
-      res.send("<h1 style='color:#10B981'>&#x2713; GPS Connected!</h1><p>" + vehicles.length + " vehicle(s) found. Token expires in " + Math.round((tokenExpiry - Date.now()) / 60000) + " minutes (auto-refresh enabled).</p><p>You can close this tab.</p><script>setTimeout(()=>window.close(),3000)</script>");
+      res.send("<h1 style='color:#10B981;font-family:sans-serif'>&#x2713; GPS Connected!</h1><p style='font-family:sans-serif'>" + vehicles.length + " vehicle(s) found. Token expires in " + Math.round((tokenExpiry - Date.now()) / 60000) + " minutes (auto-refresh enabled).</p><p style='font-family:sans-serif'>You can close this tab.</p><script>setTimeout(()=>window.close(),3000)</script>");
     } else {
-      res.send("<h1>Error</h1><pre>" + JSON.stringify(data) + "</pre>");
+      console.error("[Auth] Callback token exchange failed:", rawText);
+      res.send("<h1 style='color:#EF4444;font-family:sans-serif'>Auth Failed</h1><pre style='font-family:monospace'>" + rawText + "</pre><p><a href='/reauth'>Try again</a></p>");
     }
-  } catch(e) { res.send("<h1>Error</h1><pre>" + e.message + "</pre>"); }
+  } catch(e) {
+    console.error("[Auth] Callback exception:", e.message);
+    res.send("<h1 style='color:#EF4444;font-family:sans-serif'>Error</h1><pre style='font-family:monospace'>" + e.message + "</pre><p><a href='/reauth'>Try again</a></p>");
+  }
 });
 
 // Force GPS reconnect — clears token, retries all auth sources
@@ -916,10 +895,6 @@ app.get("/api/fix-gps", async (req, res) => {
   }
 });
 
-app.get("/api/debug", async (req, res) => {
-  const allVehicles = await bouncieGet("/vehicles");
-  res.json({ allVehicles, positions: latestPositions });
-});
 
 // ─── Start ───
 const PORT = process.env.PORT || 3488;

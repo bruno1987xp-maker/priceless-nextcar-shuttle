@@ -590,13 +590,13 @@ html+="<div class='forecast-row'><span class='forecast-day'>"+day+"</span><span 
 document.getElementById("weather-forecast").innerHTML=html;
 }catch(e){console.error("Weather:",e)}}
 fetchWeather();setInterval(fetchWeather,6e5);
-poll();setInterval(poll,8e3);bs();setInterval(bs,6e4);
-// Auto-reload every 6 hours to prevent memory leaks and ensure fresh state
-setTimeout(function(){location.reload()},6*60*60*1000);
-// Auto-recover from fetch failures: if 3 consecutive poll fails, reload page
+// Auto-recover: wrap poll so 5 consecutive failures trigger a reload
 var _pollFails=0;
 var _origPoll=poll;
-poll=async function(){try{await _origPoll();_pollFails=0}catch(e){_pollFails++;if(_pollFails>5)location.reload()}};
+poll=async function(){try{await _origPoll();_pollFails=0}catch(e){_pollFails++;console.error("Poll fail #"+_pollFails,e);if(_pollFails>=5)location.reload()}};
+poll();setInterval(function(){poll()},8e3);bs();setInterval(bs,6e4);
+// Auto-reload every 6 hours to prevent memory leaks and ensure fresh state
+setTimeout(function(){location.reload()},6*60*60*1000);
 
 // ═══ SETTINGS PANEL ═══
 var _cfg=JSON.parse(localStorage.getItem("dashCfg")||"{}");
