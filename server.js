@@ -109,15 +109,17 @@ const dbLoadAuth = db.prepare(`SELECT val FROM auth_store WHERE key = ?`);
 // ─── Token persistence — 3 layers: SQLite > file > env ───
 const TOKEN_FILE = path.join(__dirname, ".bouncie-token.json");
 
-function saveToken(token, expiry, authCode) {
+function saveToken(token, expiry, authCode, refreshToken) {
   try {
     dbSaveAuth.run("access_token", token);
     dbSaveAuth.run("token_expiry", String(expiry));
     if (authCode) dbSaveAuth.run("auth_code", authCode);
+    if (refreshToken) dbSaveAuth.run("refresh_token", refreshToken);
   } catch(e) { console.error("[Auth] SQLite save error:", e.message); }
   try {
     const data = { token, expiry };
     if (authCode) data.authCode = authCode;
+    if (refreshToken) data.refreshToken = refreshToken;
     require("fs").writeFileSync(TOKEN_FILE, JSON.stringify(data));
   } catch(e) {}
 }
@@ -494,7 +496,8 @@ async function exchangeAuthCode(code, label) {
   const data = await res.json();
   accessToken = data.access_token;
   tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
-  saveToken(accessToken, tokenExpiry, code);
+  if (data.refresh_token) console.log("[Auth] Refresh token received — silent refresh enabled");
+  saveToken(accessToken, tokenExpiry, code, data.refresh_token || null);
   consecutiveAuthFailures = 0;
   lastAuthError = null;
   console.log(`[Auth] Token obtained (${label}), expires in ${Math.round((tokenExpiry - Date.now()) / 60000)}min`);
@@ -527,6 +530,31 @@ async function getAccessToken() {
   return null;
 }
 
+async function refreshWithToken() {
+  try {
+    const row = dbLoadAuth.get("refresh_token");
+    if (!row || !row.val) return false;
+    console.log("[Auth] Attempting silent refresh with refresh_token...");
+    const res = await fetch(BOUNCIE_AUTH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: CLIENT_ID, client_secret: CLIENT_SECRET,
+        grant_type: "refresh_token", refresh_token: row.val,
+      }),
+    });
+    if (!res.ok) { console.error("[Auth] Refresh token failed:", res.status); return false; }
+    const data = await res.json();
+    if (!data.access_token) return false;
+    accessToken = data.access_token;
+    tokenExpiry = Date.now() + (data.expires_in - 300) * 1000;
+    saveToken(accessToken, tokenExpiry, null, data.refresh_token || row.val);
+    console.log("[Auth] Silent refresh succeeded — token valid for " + Math.round((tokenExpiry - Date.now()) / 60000) + "min");
+    consecutiveAuthFailures = 0; lastAuthError = null;
+    return true;
+  } catch(e) { console.error("[Auth] Refresh token error:", e.message); return false; }
+}
+
 async function tokenWatchdog() {
   const now = Date.now();
   const timeLeft = tokenExpiry - now;
@@ -534,18 +562,12 @@ async function tokenWatchdog() {
 
   if (accessToken && timeLeft > 0 && timeLeft < 15 * 60 * 1000) {
     console.log(`[Watchdog] Token expires in ${timeLeftMin}min, refreshing proactively...`);
-    const code = getStoredAuthCode();
-    if (code) {
-      try {
-        await exchangeAuthCode(code, "watchdog/proactive");
-        console.log("[Watchdog] Proactive refresh succeeded");
-      } catch (e) {
-        console.error("[Watchdog] Proactive refresh failed:", e.message);
-      }
-    }
+    const refreshed = await refreshWithToken();
+    if (!refreshed) console.log("[Watchdog] No refresh token available — will need manual reauth when token expires");
   } else if (!accessToken || timeLeft <= 0) {
     console.log("[Watchdog] No valid token, attempting recovery...");
-    await getAccessToken();
+    const refreshed = await refreshWithToken();
+    if (!refreshed) await getAccessToken();
   }
 
   if (lastGpsFix) {
