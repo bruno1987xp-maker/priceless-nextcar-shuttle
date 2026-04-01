@@ -508,6 +508,13 @@ async function getAccessToken() {
   if (accessToken && Date.now() < tokenExpiry) return accessToken;
   if (loadToken()) return accessToken;
 
+  // After 3 consecutive auth failures, stop hammering auth codes every poll cycle.
+  // The watchdog (every 5min) handles recovery. Reauth clears this counter.
+  if (consecutiveAuthFailures >= 3) {
+    gpsStatus = "disconnected";
+    return null;
+  }
+
   const codeSources = [
     { code: getStoredAuthCode(), label: "SQLite/stored" },
     { code: AUTH_CODE, label: "env var" },
