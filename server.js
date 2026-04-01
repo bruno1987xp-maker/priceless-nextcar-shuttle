@@ -987,7 +987,7 @@ app.listen(PORT, async () => {
   const stats = getStats.get();
   console.log(`  [Brain] ${stats.total_trips} trips logged so far`);
 
-  if (CLIENT_ID && CLIENT_SECRET && AUTH_CODE) {
+  if (CLIENT_ID && CLIENT_SECRET) {
     console.log("  [Bouncie] Credentials found, connecting...");
     await fetchVehicles();
     console.log(`  [Bouncie] ${vehicles.length} vehicle(s) found`);
