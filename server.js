@@ -783,7 +783,7 @@ app.get("/api/shuttles", (req, res) => {
   const shuttles = allShuttles
     .filter(s => {
       const age = Date.now() - new Date(s.timestamp).getTime();
-      const imeiAllowed = ALLOWED_IMEIS.length === 0 || ALLOWED_IMEIS.some(id => s.imei.endsWith(id));
+      const imeiAllowed = ALLOWED_IMEIS.length === 0 || ALLOWED_IMEIS.some(id => s.vid === id);
       const isActive = s.isRunning || s.speed > 2; // engine on OR actually moving
       return imeiAllowed
         && isActive
