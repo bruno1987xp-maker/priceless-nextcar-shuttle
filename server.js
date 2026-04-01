@@ -597,8 +597,9 @@ async function bouncieGet(endpoint, params = {}) {
       console.error("[API] 401 — token expired/rejected. Clearing token, visit /reauth to reconnect.");
       accessToken = null; tokenExpiry = 0;
       gpsStatus = "disconnected";
-      // Clear from SQLite so loadToken() doesn't re-serve the dead token
+      // Clear from SQLite AND file so loadToken() doesn't re-serve the dead token
       try { dbSaveAuth.run("access_token", ""); dbSaveAuth.run("token_expiry", "0"); } catch(e) {}
+      try { require("fs").writeFileSync(TOKEN_FILE, JSON.stringify({ token: "", expiry: 0 })); } catch(e) {}
       return null;
     }
     if (!res.ok) return null;
