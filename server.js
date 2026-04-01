@@ -123,20 +123,24 @@ function saveToken(token, expiry, authCode) {
 }
 
 function loadToken() {
+  // Always load stored token — let the API 401 tell us if it's truly dead,
+  // not our local clock. This survives restarts even after local expiry.
   try {
     const t = dbLoadAuth.get("access_token");
     const e = dbLoadAuth.get("token_expiry");
-    if (t && e && Number(e.val) > Date.now()) {
-      accessToken = t.val; tokenExpiry = Number(e.val);
-      console.log("[Auth] Loaded token from SQLite (expires in " + Math.round((tokenExpiry - Date.now()) / 60000) + "min)");
+    if (t && t.val) {
+      accessToken = t.val;
+      tokenExpiry = e ? Number(e.val) : Date.now() + 60 * 60 * 1000;
+      const minLeft = Math.round((tokenExpiry - Date.now()) / 60000);
+      console.log(`[Auth] Loaded token from SQLite (local expiry: ${minLeft > 0 ? minLeft + "min" : "passed — will verify with API"})`);
       return true;
     }
   } catch(e) {}
   try {
     const d = JSON.parse(require("fs").readFileSync(TOKEN_FILE, "utf8"));
-    if (d.token && d.expiry > Date.now()) {
-      accessToken = d.token; tokenExpiry = d.expiry;
-      console.log("[Auth] Loaded token from file (expires in " + Math.round((tokenExpiry - Date.now()) / 60000) + "min)");
+    if (d.token) {
+      accessToken = d.token; tokenExpiry = d.expiry || Date.now() + 60 * 60 * 1000;
+      console.log("[Auth] Loaded token from file");
       return true;
     }
   } catch(e) {}
@@ -568,13 +572,12 @@ async function bouncieGet(endpoint, params = {}) {
   try {
     const res = await fetchWithTimeout(url.toString(), { headers: { Authorization: token } });
     if (res.status === 401) {
-      console.log("[API] 401 — token rejected, clearing and retrying...");
+      console.error("[API] 401 — token expired/rejected. Clearing token, visit /reauth to reconnect.");
       accessToken = null; tokenExpiry = 0;
-      const newToken = await getAccessToken();
-      if (!newToken) return null;
-      const retry = await fetchWithTimeout(url.toString(), { headers: { Authorization: newToken } });
-      if (!retry.ok) return null;
-      return retry.json();
+      gpsStatus = "disconnected";
+      // Clear from SQLite so loadToken() doesn't re-serve the dead token
+      try { dbSaveAuth.run("access_token", ""); dbSaveAuth.run("token_expiry", "0"); } catch(e) {}
+      return null;
     }
     if (!res.ok) return null;
     return res.json();
