@@ -427,8 +427,8 @@ var adminTimer=null;
 var _adminUnlocked=false;
 var KIOSK=new URLSearchParams(location.search).has("kiosk");
 if(KIOSK){document.getElementById("admin-menu").remove()}
-// Auto-fullscreen after 10 seconds
-setTimeout(function(){var isFS=!!(document.fullscreenElement||document.webkitFullscreenElement);if(!isFS){if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(function(){});else if(document.documentElement.webkitRequestFullscreen)document.documentElement.webkitRequestFullscreen()}},10000);
+// Auto-fullscreen: show overlay, first tap goes fullscreen
+(function(){var ov=document.createElement("div");ov.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:99999;display:flex;align-items:center;justify-content:center;cursor:pointer";ov.innerHTML="<div style='text-align:center;color:#fff;font-family:Inter,sans-serif'><div style='font-size:48px;margin-bottom:16px'>🚐</div><div style='font-size:18px;font-weight:700'>TAP TO START</div><div style='font-size:12px;color:#94A3B8;margin-top:8px'>Shuttle Tracker</div></div>";document.body.appendChild(ov);ov.addEventListener("click",function(){ov.remove();if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(function(){});else if(document.documentElement.webkitRequestFullscreen)document.documentElement.webkitRequestFullscreen()})})();
 var ADMIN_PIN="2026"; // change this to your preferred 4-digit PIN
 function showAdminMenu(){
 if(KIOSK)return;
