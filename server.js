@@ -815,8 +815,9 @@ app.get("/api/shuttles", (req, res) => {
       const age = Date.now() - new Date(s.timestamp).getTime();
       const imeiAllowed = ALLOWED_IMEIS.length === 0 || ALLOWED_IMEIS.some(id => s.vid === id);
       const isActive = s.isRunning || s.speed > 2; // engine on OR actually moving
+      const atKnownLocation = s.direction === "at-lax" || s.direction === "at-office";
       return imeiAllowed
-        && isActive
+        && (isActive || atKnownLocation)
         && age < GPS_STALE_MS
         && Math.min(parseFloat(s.distToOffice), parseFloat(s.distToLax)) <= MAX_ROUTE_DIST;
     })

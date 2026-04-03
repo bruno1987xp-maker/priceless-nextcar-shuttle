@@ -427,6 +427,8 @@ var adminTimer=null;
 var _adminUnlocked=false;
 var KIOSK=new URLSearchParams(location.search).has("kiosk");
 if(KIOSK){document.getElementById("admin-menu").remove()}
+// Auto-fullscreen after 10 seconds
+setTimeout(function(){var isFS=!!(document.fullscreenElement||document.webkitFullscreenElement);if(!isFS){if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(function(){});else if(document.documentElement.webkitRequestFullscreen)document.documentElement.webkitRequestFullscreen()}},10000);
 var ADMIN_PIN="2026"; // change this to your preferred 4-digit PIN
 function showAdminMenu(){
 if(KIOSK)return;
@@ -562,8 +564,8 @@ var pt=[sh.lat,sh.lng];
 visiblePoints.push(pt);
 // Check if shuttle is outside normal route box
 if(sh.lat<ROUTE_BOUNDS[0][0]||sh.lat>ROUTE_BOUNDS[1][0]||sh.lng<ROUTE_BOUNDS[0][1]||sh.lng>ROUTE_BOUNDS[1][1]){
-// Outside normal route — but if stopped (speed=0), hide it (gas station)
-if(sh.speed===0&&sh.direction!=="to-office"&&sh.direction!=="to-lax"){
+// Outside normal route — but if stopped (speed=0) and NOT at a known location, hide it (gas station)
+if(sh.speed===0&&sh.direction!=="to-office"&&sh.direction!=="to-lax"&&sh.direction!=="at-office"&&sh.direction!=="at-lax"){
 if(sMkrs[sh.vid]){mp.removeLayer(sMkrs[sh.vid]);delete sMkrs[sh.vid]}
 if(tLines[sh.vid]){tLines[sh.vid].forEach(function(l){mp.removeLayer(l)});delete tLines[sh.vid]}
 }else{
