@@ -444,10 +444,11 @@ clearTimeout(adminTimer);
 adminTimer=setTimeout(function(){menu.classList.remove("visible")},5000);
 }
 mp.on("click",function(){showAdminMenu()});
-document.getElementById("admin-menu").addEventListener("click",function(e){
+var _adminEl=document.getElementById("admin-menu");
+if(_adminEl){_adminEl.addEventListener("click",function(e){
 e.stopPropagation();clearTimeout(adminTimer);
-adminTimer=setTimeout(function(){document.getElementById("admin-menu").classList.remove("visible")},5000);
-});
+adminTimer=setTimeout(function(){var m=document.getElementById("admin-menu");if(m)m.classList.remove("visible")},5000);
+});}
 var COLORS=["#3B82F6","#10B981","#F59E0B"];
 // Pin colors to vehicle ID (vid) so color never changes when sort order shifts
 var _vidColors={};var _vidNames={};var _colorIdx=0;
